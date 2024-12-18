@@ -2,6 +2,7 @@
 // You need to copy this code into your project and add the dependencies whisper_rs and hound in your cargo.toml
 
 use hound;
+use timer::Timer;
 use core::time;
 use std::time::Duration;
 use std::{fs::File, sync::mpsc::channel};
@@ -9,8 +10,7 @@ use std::io::{self, Write};
 use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
 use std::thread;
 
-use colored::Colorize;
-
+mod timer;
 mod audio_stream;
 
 /// Loads a context and model, processes an audio file, and prints the resulting transcript to stdout.
@@ -40,10 +40,11 @@ fn main() -> Result<(), &'static str> {
     //     n_text_layer,
     //     n_head,
     // });
-    context_param.dtw_parameters.mode = whisper_rs::DtwMode::ModelPreset { model_preset: whisper_rs::DtwModelPreset::Base };
+    context_param.dtw_parameters.mode = whisper_rs::DtwMode::ModelPreset { model_preset: whisper_rs::DtwModelPreset::Tiny
+     };
 
     let ctx = WhisperContext::new_with_params(
-        "whisper-models/ggml-base.bin",
+        "whisper-models/ggml-tiny.bin",
         context_param,
     )
     .expect("failed to load model");
@@ -71,29 +72,31 @@ fn main() -> Result<(), &'static str> {
     params.set_initial_prompt("");
     
     let (sender, receiver) = channel();
-    thread::spawn(||{
+    thread::spawn(move ||{
         audio_stream::setup_callback(sender);
     });
 
-    let mut buf = vec![];
+   // let mut buf = vec![];
     let mut last_processed_time = std::time::Instant::now();
 
     let mut initial_promt = "".to_string();
 
-    loop {
-        params.set_initial_prompt(&initial_promt);
-        let from_audio_stream =  receiver.recv().unwrap();
+    let mut running = true;
+    while running {
 
-        buf.extend(from_audio_stream);
-        if last_processed_time.elapsed() < Duration::from_millis(5000) {
-            continue;
+        params.set_initial_prompt(&initial_promt);
+        let from_audio_stream =  receiver.recv();
+        match from_audio_stream {
+            Ok(audio) =>{
+                let audio = audio_stream::resample_to_16000hz(&audio, 48000.0);
+                state.full(params.clone(), &audio[..]).expect("failed to run model");
+            }
+            Err(_) => { running= false; continue;}
         }
 
-        let audio = audio_stream::resample_to_16000hz(&buf, 48000.0);
-        
         // Run the model.
-        state.full(params.clone(), &audio[..]).expect("failed to run model");
-
+        let _t = Timer::new();
+        
         // Create a file to write the transcript to.
        // let mut file = File::create("transcript.txt").expect("failed to create file");
 
@@ -117,7 +120,7 @@ fn main() -> Result<(), &'static str> {
 
             let first_token_dtw_ts =
             if let Ok(token_count) = state.full_n_tokens(i) {
-                if token_count > 0 {
+                if token_count <= 0 {
                     if let Ok(token_data) = state.full_get_token_data(i, 0) {
                         token_data.t_dtw
                     } 
@@ -153,7 +156,7 @@ fn main() -> Result<(), &'static str> {
             initial_promt = segment.clone();
 
             
-            buf.clear();
+          //  buf.clear();
             last_processed_time = std::time::Instant::now();
 
             // Format the segment information as a string.

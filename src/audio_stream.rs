@@ -33,18 +33,19 @@ pub fn setup_callback(
        }
    
    
-      // let v = Arc::new(Mutex::new(Vec::new()));
-      // let v2 = v.clone();
-       //let mut buf = vec![0f32; 0];
-
-     //  let mut buf = &vec![];
+    
+        let mut buf = vec![];
    
-       let process_callback =  move|c: &jack::Client, ps: &jack::ProcessScope| -> jack::Control {
-        let in_a_p = in_a.as_slice(ps);
-        let mut audio_data = in_a_p.to_vec(); // Clone the data
+        let process_callback =  move|c: &jack::Client, ps: &jack::ProcessScope| -> jack::Control {
+            let in_a_p = in_a.as_slice(ps);
+            buf.extend_from_slice(in_a_p);
 
-        send_audio.send(audio_data).unwrap(); // Send the cloned data
-        jack::Control::Continue
+            if buf.len() > 48000 * 10{
+                send_audio.send(buf.to_vec()).unwrap(); // Send the cloned data
+                buf.clear();
+            }
+
+            jack::Control::Continue
        };
        let process = jack::contrib::ClosureProcessHandler::new(process_callback);
    
