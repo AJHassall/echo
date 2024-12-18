@@ -1,10 +1,6 @@
-use core::time;
-use std::sync::mpsc::{channel, Sender};
-use std::sync::{Arc, Condvar, Mutex};
-use std::{io, thread};
-use hound::{WavReader, WavSpec, SampleFormat};
-use jack::{ClientStatus, PortFlags};
-use whisper_rs::{convert_integer_to_float_audio, convert_stereo_to_mono_audio};
+use std::sync::mpsc::Sender;
+use std::io;
+use jack::PortFlags;
 
 pub fn setup_callback(
     send_audio: Sender<Vec<f32>>
@@ -25,11 +21,7 @@ pub fn setup_callback(
    
        // Connect all found ports to the input port of our client
        for port in connected_ports {
-           match   client.connect_ports_by_name(&port, &in_a.name().unwrap())  {
-               Ok(()) => {},
-               Err(_) => {}
-               
-           }
+           if let Ok(()) = client.connect_ports_by_name(&port, &in_a.name().unwrap()) {}
        }
    
    

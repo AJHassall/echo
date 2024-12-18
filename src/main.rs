@@ -1,11 +1,8 @@
 // This example is not going to build in this folder.
 // You need to copy this code into your project and add the dependencies whisper_rs and hound in your cargo.toml
 
-use hound;
 use timer::Timer;
-use core::time;
-use std::time::Duration;
-use std::{fs::File, sync::mpsc::channel};
+use std::sync::mpsc::channel;
 use std::io::{self, Write};
 use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
 use std::thread;
