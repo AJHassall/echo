@@ -32,7 +32,7 @@ pub fn setup_callback(
             let in_a_p = in_a.as_slice(ps);
             buf.extend_from_slice(in_a_p);
 
-            if buf.len() > 48000 * 10{
+            if buf.len() > 48000 * 5{
                 send_audio.send(buf.to_vec()).unwrap(); // Send the cloned data
                 buf.clear();
             }
