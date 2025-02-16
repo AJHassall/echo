@@ -1,0 +1,3 @@
+
+/whisper-models/*.en.bin
+/target/*

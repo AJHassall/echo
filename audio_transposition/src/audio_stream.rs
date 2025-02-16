@@ -21,6 +21,7 @@ pub fn setup_callback(
    
        // Connect all found ports to the input port of our client
        for port in connected_ports {
+            if port.contains("input") {continue};
            if let Ok(()) = client.connect_ports_by_name(&port, &in_a.name().unwrap()) {}
        }
    
@@ -138,39 +139,39 @@ pub fn convert_audio_chunk(
 struct Notifications;
 
 impl jack::NotificationHandler for Notifications {
-    fn thread_init(&self, _: &jack::Client) {
-        println!("JACK: thread init");
-    }
+    // fn thread_init(&self, _: &jack::Client) {
+    //     println!("JACK: thread init");
+    // }
 
     /// Not much we can do here, see https://man7.org/linux/man-pages/man7/signal-safety.7.html.
     unsafe fn shutdown(&mut self, _: jack::ClientStatus, _: &str) {}
 
     fn freewheel(&mut self, _: &jack::Client, is_enabled: bool) {
-        println!(
-            "JACK: freewheel mode is {}",
-            if is_enabled { "on" } else { "off" }
-        );
+        // println!(
+        //     "JACK: freewheel mode is {}",
+        //     if is_enabled { "on" } else { "off" }
+        // );
     }
 
     fn sample_rate(&mut self, _: &jack::Client, srate: jack::Frames) -> jack::Control {
-        println!("JACK: sample rate changed to {srate}");
+        //println!("JACK: sample rate changed to {srate}");
         jack::Control::Continue
     }
 
     fn client_registration(&mut self, _: &jack::Client, name: &str, is_reg: bool) {
-        println!(
-            "JACK: {} client with name \"{}\"",
-            if is_reg { "registered" } else { "unregistered" },
-            name
-        );
+        // println!(
+        //     "JACK: {} client with name \"{}\"",
+        //     if is_reg { "registered" } else { "unregistered" },
+        //     name
+        // );
     }
 
     fn port_registration(&mut self, _: &jack::Client, port_id: jack::PortId, is_reg: bool) {
-        println!(
-            "JACK: {} port with id {}",
-            if is_reg { "registered" } else { "unregistered" },
-            port_id
-        );
+        // println!(
+        //     "JACK: {} port with id {}",
+        //     if is_reg { "registered" } else { "unregistered" },
+        //     port_id
+        // );
     }
 
     fn port_rename(
@@ -180,7 +181,7 @@ impl jack::NotificationHandler for Notifications {
         old_name: &str,
         new_name: &str,
     ) -> jack::Control {
-        println!("JACK: port with id {port_id} renamed from {old_name} to {new_name}",);
+     //   println!("JACK: port with id {port_id} renamed from {old_name} to {new_name}",);
         jack::Control::Continue
     }
 
@@ -191,25 +192,25 @@ impl jack::NotificationHandler for Notifications {
         port_id_b: jack::PortId,
         are_connected: bool,
     ) {
-        println!(
-            "JACK: ports with id {} and {} are {}",
-            port_id_a,
-            port_id_b,
-            if are_connected {
-                "connected"
-            } else {
-                "disconnected"
-            }
-        );
+        // println!(
+        //     "JACK: ports with id {} and {} are {}",
+        //     port_id_a,
+        //     port_id_b,
+        //     if are_connected {
+        //         "connected"
+        //     } else {
+        //         "disconnected"
+        //     }
+        // );
     }
 
     fn graph_reorder(&mut self, _: &jack::Client) -> jack::Control {
-        println!("JACK: graph reordered");
+        //println!("JACK: graph reordered");
         jack::Control::Continue
     }
 
     fn xrun(&mut self, _: &jack::Client) -> jack::Control {
-        println!("JACK: xrun occurred");
+      //  println!("JACK: xrun occurred");
         jack::Control::Continue
     }
 }
