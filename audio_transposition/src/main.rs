@@ -1,24 +1,24 @@
-mod api; // Import the api module
-mod model; // Import the model module
-//mod utils;
+mod transcription_engine;
+mod api;
 
-use actix_web::{App, HttpServer};
-use api::{AppState, configure_api}; // Use the api config and AppState
+use actix_web::{web, App, HttpServer}; // Actix Web for API
+use std::sync::{Arc, Mutex}; // For shared state
+use std::fs::File;
+use std::io::Read;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    // Create the model
-    let model = model::create_model();
-
-    // Create AppState
-    let app_state = web::Data::new(AppState { model });
+    let model_path = "whisper-models/ggml-base.bin";
+    let transcription_engine = Arc::new(Mutex::new(
+        transcription_engine::TranscriptionEngine::new(model_path).expect("error loading model"),
+    )); // Shared state
 
     HttpServer::new(move || {
         App::new()
-            .app_data(app_state.clone())
-            .configure(configure_api) // Configure the API routes
+            .app_data(web::Data::new(transcription_engine.clone())) // Share the state
+            .service(api::transcribe) // Mount the API endpoint
     })
-    .bind(("0.0.0.0", 8080))?
+    .bind("127.0.0.1:8080")? // Bind to port 8080
     .run()
     .await
 }

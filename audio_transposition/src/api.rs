@@ -1,76 +1,73 @@
-use actix_web::{web, Error, HttpResponse, Responder};
-use futures_util::{StreamExt, SinkExt};
+use actix_web::{post, web, Error, HttpResponse, http::StatusCode, ResponseError};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use tokio_tungstenite::tungstenite::Message;
+use std::sync::{Arc, Mutex};
+use std::fmt;
+use std::error::Error as StdError;
 
-use crate::model::YourModel; // Import the model
-use crate::utils::{preprocess_text, postprocess_predictions}; // Import utils
+use crate::transcription_engine;
 
-#[derive(Deserialize, Serialize)]
-pub struct PredictionRequest {
-    input_text: String,
-    // ... other input fields
+
+// Define a custom error type
+#[derive(Debug, Serialize)]
+pub struct CustomError {
+    pub message: String,
 }
 
-async fn websocket_route(
-    req: web::HttpRequest,
-    data: web::Data<AppState>,
-) -> Result<impl Responder, Error> {
-    // ... (WebSocket handling logic - same as before, but using the imported model) ...
-    let upgraded = web::ws::start(req)?;
-    let model = data.model.clone();
-
-    Ok(HttpResponse::Ok().streaming(upgraded.map_err(Error::from).map(move |msg| {
-        match msg {
-            Ok(Message::Text(text)) => {
-                let request: PredictionRequest = match serde_json::from_str(&text) {
-                    Ok(req) => req,
-                    Err(e) => return Ok(Message::Text(format!("Error parsing request: {}", e))),
-                };
-
-                let processed_input = preprocess_text(&request.input_text);
-
-                let prediction = {
-                    let model_guard = model.lock().unwrap();
-                    model_guard.predict(&processed_input)
-                };
-
-                let output = postprocess_predictions(&prediction);
-                Ok(Message::Text(serde_json::to_string(&output).unwrap()))
-            }
-            Ok(Message::Close(_)) => {
-                println!("Client disconnected");
-                Ok(Message::Close(None))
-            }
-            _ => Ok(Message::Text("Unsupported message type".to_string())),
-        }
-    })))
+impl fmt::Display for CustomError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.message)
+    }
 }
 
-async fn predict_route(
-    data: web::Data<AppState>,
-    req: web::Json<PredictionRequest>,
-) -> Result<impl Responder, Error> {
-    let input_data = &req.input_text;
-    let processed_input = preprocess_text(input_data);
+impl StdError for CustomError {}
 
-    let prediction = {
-        let model_guard = data.model.lock().unwrap();
-        model_guard.predict(&processed_input)
-    };
-
-    let output = postprocess_predictions(&prediction);
-
-    Ok(HttpResponse::Ok().json(output))
+impl ResponseError for CustomError {
+    fn error_response(&self) -> HttpResponse {
+        HttpResponse::build(StatusCode::BAD_REQUEST).json(self)
+    }
 }
 
-pub struct AppState {
-    pub model: Arc<std::sync::Mutex<YourModel>>,
+#[derive(Debug, Deserialize)]
+pub struct TranscribeRequest {
+    pub audio: String,
 }
 
-// Function to configure the API routes
-pub fn configure_api(cfg: &mut web::ServiceConfig) {
-    cfg.route("/predict", web::post().to(predict_route))
-        .route("/ws", web::get().to(websocket_route));
+#[derive(Debug, Serialize)]
+pub struct TranscribeResponse {
+    pub transcription: String,
+}
+
+#[post("/transcribe")]
+async fn transcribe(
+    req: web::Json<TranscribeRequest>,
+    engine: web::Data<Arc<Mutex<transcription_engine::TranscriptionEngine>>>,
+) -> Result<HttpResponse, Error> {
+    let audio_bytes = base64::decode(&req.audio).map_err(|err| {
+        Error::from(CustomError {
+            message: format!("Base64 decoding error: {}", err),
+        })
+    })?;
+
+
+    let samples: Vec<i16> = audio_bytes
+        .chunks_exact(2)
+        .map(|chunk| i16::from_le_bytes([chunk[0], chunk[1]]))
+        .collect();
+
+    let mut audio = vec![0.0f32; samples.len().try_into().unwrap()];
+
+    whisper_rs::convert_integer_to_float_audio(&samples, &mut audio).expect("Conversion error");
+
+    let mut engine_lock = engine.lock().unwrap();
+    engine_lock.process_audio(audio.as_slice()).expect("error processing audio");
+
+    let segments = engine_lock.get_segments().map_err(|err| {
+        Error::from(CustomError {
+            message: format!("Whisper error: {}", err),
+        })
+    })?;
+
+    let transcription = segments.join(" ");
+
+    Ok(HttpResponse::Ok().json(TranscribeResponse { transcription }))
 }
