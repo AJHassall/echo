@@ -1,5 +1,5 @@
 
-**/whisper-models/*.bin
+/whisper-models/*.en.bin
 **/debug/
 **/target/
 
