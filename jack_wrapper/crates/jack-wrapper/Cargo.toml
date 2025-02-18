@@ -1,0 +1,18 @@
+[package]
+name = "jack-wrapper"
+version = "0.1.0"
+description = "wrapper for jack"
+license = "ISC"
+edition = "2021"
+exclude = ["index.node"]
+
+[lib]
+crate-type = ["cdylib"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+futures = "0.3.31"
+hound = "3.5.1"
+jack = "0.13.0"
+neon = "1"

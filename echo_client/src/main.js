@@ -1,10 +1,19 @@
 import { app, BrowserWindow, dialog, desktopCapturer, ipcMain } from 'electron';
+import recorder from "../../jack_wrapper"
 const path = require('path');
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) {
   app.quit();
 }
+
+
+recorder.start_recording("MyRustJackClient");
+
+setTimeout(() => {
+    recorder.stop_recording();
+    console.log("Recording stopped and saved!");
+}, 5000); // Stop after 5 seconds
 
 const createWindow = () => {
   // Create the browser window.
