@@ -8,13 +8,9 @@ if (require('electron-squirrel-startup')) {
 }
 
 
-recorder.start();
+recorder.initialise();
 
 
-setTimeout(() => {
-    recorder.stop();
-    console.log("Recording stopped and saved!");
-}, 5000); // Stop after 5 seconds
 
 const createWindow = () => {
   // Create the browser window.

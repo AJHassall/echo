@@ -2695,6 +2695,11 @@ isobject@^3.0.1:
   resolved "https://registry.npmjs.org/isobject/-/isobject-3.0.1.tgz"
   integrity sha512-WhB9zCku7EGTj/HQQRz5aUQEUeoQZH2bWcltRErOpymJ4boYE6wL9Tbr23krRPSZ+C5zqNSrSw+Cc7sZZ4b7vg==
 
+jack-wrapper@../jack_wrapper/:
+  version "0.1.0"
+  dependencies:
+    "@neon-rs/load" "^0.1.82"
+
 "jack-wrapper@file:../jack_wrapper":
   version "0.1.0"
   dependencies:

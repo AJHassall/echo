@@ -16,3 +16,5 @@ futures = "0.3.31"
 hound = "3.5.1"
 jack = "0.13.0"
 neon = "1"
+pin-project = "1.1.9"
+tokio = { version = "1.43.0", features = ["full"] }

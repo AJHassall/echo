@@ -6,20 +6,11 @@ import * as addon from './load.cjs';
 // Use this declaration to assign types to the addon's exports,
 // which otherwise by default are `any`.
 declare module "./load.cjs" {
-  function Start(): string;
-  function Stop(): string;
+  function initialise(): undefined;
 }
 
-export type Greeting = {
-  message: string
-};
 
+export function initialise(): undefined {
+  const message = addon.initialise();
 
-export function start(): undefined {
-  const message = addon.Start();
-
-}
-
-export function stop() : undefined {
-  const message = addon.Stop();
 }
