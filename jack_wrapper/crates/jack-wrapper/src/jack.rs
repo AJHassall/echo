@@ -1,65 +1,66 @@
 use jack::{AudioIn, Client, ClientOptions, PortFlags};
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    mpsc, Arc, Mutex,
-};
 use std::thread;
+use std::{
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc, Arc, Mutex,
+    },
+    thread::sleep,
+    time::Duration,
+};
+
+use crate::audio::AudioDataReceiver;
 
 pub struct JackClient {
     running: Arc<AtomicBool>,
-    audio_data: Arc<Mutex<Vec<f32>>>,
-    sender: mpsc::Sender<Vec<f32>>, // For sending audio data to the stream,
-    receiver: Arc<Mutex<mpsc::Receiver<Vec<f32>>>>, // Add the receiver field
+    audio_tx: mpsc::Sender<Vec<f32>>,
+    audio_rx: Arc<Mutex<mpsc::Receiver<Vec<f32>>>>, 
+    thread_handle: Option<thread::JoinHandle<()>>,
 }
 
 impl JackClient {
     pub fn new() -> Self {
-        let (sender, receiver) = mpsc::channel(); // Choose a suitable buffer size
+        let (audio_tx, audio_rx) = mpsc::channel();
         JackClient {
             running: Arc::new(AtomicBool::new(false)),
-            audio_data: Arc::new(Mutex::new(Vec::new())),
-            sender,
-            receiver: Arc::new(Mutex::new(receiver))
+            audio_tx,
+            audio_rx: Arc::new(Mutex::new(audio_rx)), // Initialize Arc<Mutex<>>,
+            thread_handle: None, // Initialize to None
         }
     }
-    pub fn start_recording(&self) {
-        if self.running.load(Ordering::SeqCst) {
-            //return Ok(cx.undefined()); // Already running
-        }
-
-        self.running.store(true, Ordering::SeqCst);
-        
-        let audio_data = self.audio_data.clone(); 
-        let sender = self.sender.clone(); // Clone the sender for the callback
+    pub fn start_processing(&mut self) { // Renamed to start_processing
         let running = self.running.clone();
-        thread::spawn(move || {
+        let audio_tx_clone = self.audio_tx.clone();
+
+        let handle = thread::spawn(move || {
+            running.store(true, Ordering::SeqCst);
             jack::set_logger(jack::LoggerType::None);
 
             let (client, _status) = Client::new("echo", ClientOptions::default()).unwrap();
             let in_a = client.register_port("input", AudioIn::default()).unwrap();
 
             let connected_ports = client.ports(None, None, PortFlags::empty());
+
+            std::thread::sleep(Duration::from_secs(1));
+
             for port in connected_ports {
                 if let Err(e) = client.connect_ports_by_name(&port, &in_a.name().unwrap()) {
                     eprintln!("Error connecting ports: {}", e);
                 }
             }
 
+            let running_clone = running.clone();
             let process_callback = move |_: &Client, ps: &jack::ProcessScope| -> jack::Control {
-                // if !running.load(Ordering::SeqCst) {
-                //     return jack::Control::Quit; // Stop processing when flag is set
-                // }
+                if !running_clone.load(Ordering::SeqCst) {
+                    return jack::Control::Quit;
+                }
 
                 let in_a_p = in_a.as_slice(ps);
-                let mut audio_data_lock = audio_data.lock().unwrap();
-                audio_data_lock.extend_from_slice(in_a_p);
+                let audio_data: Vec<f32> = in_a_p.to_vec();
 
-                // Send the audio data through the channel
-                if let Err(e) = sender.send(audio_data_lock.clone()) { // Clone data to send
+                if let Err(e) = audio_tx_clone.send(audio_data) {
                     eprintln!("Error sending audio data: {}", e);
-                    return jack::Control::Continue; // Or handle the error appropriately
                 }
-                audio_data_lock.clear(); // Clear the buffer after sending
 
                 jack::Control::Continue
             };
@@ -68,22 +69,30 @@ impl JackClient {
             let _active_client = client.activate_async(Notifications, process).unwrap();
 
             while running.load(Ordering::SeqCst) {
-                std::thread::sleep(std::time::Duration::from_millis(10)); // Prevent CPU hogging
+                std::thread::sleep(std::time::Duration::from_millis(10));
             }
-
-   
-           // self.audio_data.lock().unwrap().clear(); // Clear data after saving
         });
 
-        
+        self.thread_handle = Some(handle); // Store the thread handle
     }
-   pub fn stop_recording(self) {
+
+    pub fn stop_processing(&mut self) { 
         self.running.store(false, Ordering::SeqCst);
+        if let Some(handle) = self.thread_handle.take() { 
+            handle.join().unwrap();
+        }
     }
-    pub fn get_receiver(&self) -> Arc<Mutex<mpsc::Receiver<Vec<f32>>>> {
-        self.receiver.clone() // Increment the Arc's strong count
+
+
+
+}
+
+impl AudioDataReceiver for JackClient {
+    fn get_audio_receiver(&self) -> Arc<Mutex<mpsc::Receiver<Vec<f32>>>> {
+        self.audio_rx.clone()
     }
 }
+
 struct Notifications;
 
 impl jack::NotificationHandler for Notifications {
