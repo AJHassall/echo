@@ -1,67 +1,97 @@
-use std::{path::Path, thread, time::{Duration, Instant}};
+use base64::encode;
+use neon::prelude::*;
+use reqwest::{Body, Client, Error as ReqwestError};
+use serde::Serialize;
+use std::time::{Duration, Instant};
+use tokio::task::{self, JoinHandle};
+use tokio_util::codec::{BytesCodec, FramedRead};
 
-use neon::{handle, prelude::*};
-use tokio::{runtime::Runtime, sync::mpsc, time::error::Error};
-
-use crate::{audio::AudioDataReceiver, jack::JackClient, vad::{VoiceActivityDetector, AudioChunkProcessor}};
+use crate::{
+    audio::AudioDataReceiver,
+    jack::JackClient,
+    vad::{AudioChunkProcessor, VoiceActivityDetector},
+};
 
 pub struct AudioRecorder;
 
 impl AudioRecorder {
-    pub fn initialise(mut cx: FunctionContext) -> JsResult<JsUndefined> {
-        println!("recording started");
+    #[tokio::main]
+    pub async fn initialise(mut cx: FunctionContext) -> JsResult<JsUndefined> {
+        println!("Recording started");
 
         let mut jack_client = JackClient::new();
         let receiver_arc = jack_client.get_audio_receiver();
-
         jack_client.start_processing();
+
         let vad = VoiceActivityDetector::new();
         let sample_rate = 16000;
         let mut processor = AudioChunkProcessor::new(vad, sample_rate);
-        
+
         let start_time = Instant::now();
-        let duration = Duration::from_secs(10);
-    
+        let duration = Duration::from_secs(30);
+
+        let mut h = vec![   ];
+
         while start_time.elapsed() < duration {
-            let receiver_guard = receiver_arc.lock().unwrap(); // Lock the mutex
-            match receiver_guard.recv() {
-                Ok(audio_data) => {
-                    println!("Received audio chunk of length: {}", audio_data.len());
-                    let result = processor.process_chunk(audio_data);
-                },
-                Err(_) => {
-                    //Handle disconnection or other errors
-                    break;
+            if let Ok(receiver_guard) = receiver_arc.lock() {
+                if let Ok(audio_data) = receiver_guard.recv() {
+                    processor.process_chunk(audio_data);
+                } else {
+                    break; // Handle disconnection or other errors
                 }
             }
-            
-            thread::sleep(Duration::from_millis(10));
+
+            let new_audio = processor.get_current_audio();
+            for data in new_audio.to_vec() {
+               h.push(send_f32_base64(data.clone()));
+            }
+
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+
+        for i in h{
+            let s = i.await;
+           
         }
 
         jack_client.stop_processing();
-        let mut s= 0;
-        for i in processor.finalize().to_vec(){
-            write_to_file(i, &format!("file{}.wav", s));
-            s+=1;
-        }
-        
-        println!("recording finished");
-        //write_to_file(audio);
+        println!("Recording finished");
 
         Ok(cx.undefined())
     }
 }
 
-fn write_to_file<P: AsRef<Path>>(audio: Vec<f32>, file_name: P) {
-    let spec = hound::WavSpec {
-        channels: 1,
-        sample_rate: 48000,
-        bits_per_sample: 32,
-        sample_format: hound::SampleFormat::Float,
-    };
-    let mut writer = hound::WavWriter::create(file_name, spec).unwrap();
-    for t in audio {
-        writer.write_sample(t).unwrap();
-    }
-    writer.finalize().unwrap();
+// #[derive(Debug, Serialize)]
+// struct AudioData {
+//     audio: Vec<f32>,
+// }
+
+fn send_f32_base64(data: Vec<f32>) -> JoinHandle<Result<(), ReqwestError>> {
+    task::spawn(async move {
+        let byte_data: Vec<u8> = data.iter().flat_map(|f| f.to_le_bytes()).collect();
+        let encoded_data = encode(&byte_data);
+
+        let client = Client::new();
+        let response = client
+            .post("http://127.0.0.1:8080/transcribe")
+            .json(&encoded_data)
+            .send()
+            .await?
+            .error_for_status()?; // Check for HTTP status errors
+
+        println!("API call successful");
+        match response.text().await {
+            Ok(text) => println!("Response: {}", text),
+            Err(e) => {
+                eprintln!("Error getting response text: {}", e);
+                return Err(ReqwestError::from(e));
+            }
+        }
+        Ok(())
+    })
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
 }

@@ -1,4 +1,4 @@
-use std::time::{Duration, Instant};
+use std::{thread::current, time::{self, Duration, Instant}};
 
 // Trait for VAD calculation
 pub trait VadCalculator {
@@ -53,36 +53,29 @@ impl AudioChunkProcessor {
     pub fn process_chunk(&mut self, audio_chunk: Vec<f32>){
 
         let energy = self.vad.calculate_energy(&audio_chunk);
+        //println!("energy {}", energy);
 
         if energy > self.silence_threshold {
-            println!("active");
-            // Speech detected
-            self.last_speech_time = Instant::now();
-            self.silence_start_time = None; // Reset silence start time
             self.current_chunk.extend(audio_chunk);
-        } else {
-            println!("silence");
-            // Silence detected.
-            let now = Instant::now();
-
-            if self.silence_start_time.is_none() {
-                // First silent chunk, record start time
-                self.silence_start_time = Some(now);
-            }
-
-            if let Some(silence_start) = self.silence_start_time {
-                if now.duration_since(silence_start) >= self.silence_duration_threshold {
-                    // Silence duration exceeded threshold
-                    if !self.current_chunk.is_empty() {
-                        self.output_chunks.push(self.current_chunk.clone());
-                        self.current_chunk.clear();
-                    }
-                    self.silence_start_time = None; // Reset silence start time
-                }
-            }
-            self.current_chunk.extend(audio_chunk);
+         //   println!("energy > threshhold");
+            self.last_silence_time = time::Instant::now();
         }
 
+        else if std::time::Instant::now().duration_since(self.last_silence_time) >= self.silence_duration_threshold  {
+          //  println!("silent for longer than 1s");
+            if !self.current_chunk.is_empty() {
+                self.output_chunks.push(self.current_chunk.clone());
+                self.current_chunk.clear();
+            }
+        }
+
+    }
+
+    pub fn get_current_audio(&mut self) -> Vec<Vec<f32>>{
+        
+        let out = self.output_chunks.clone();
+        self.output_chunks.clear();
+        out
     }
 
     pub fn finalize(&mut self) -> Vec<Vec<f32>> { //Renamed to finalize

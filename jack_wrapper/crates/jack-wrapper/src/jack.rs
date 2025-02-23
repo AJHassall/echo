@@ -82,8 +82,7 @@ impl JackClient {
             handle.join().unwrap();
         }
     }
-
-
+    
 
 }
 

@@ -13,7 +13,7 @@ impl TranscriptionEngine {
 
         // Enable DTW token level timestamp for known model by using model preset
         context_param.dtw_parameters.mode = whisper_rs::DtwMode::ModelPreset {
-            model_preset: whisper_rs::DtwModelPreset::Base,
+            model_preset: whisper_rs::DtwModelPreset::MediumEn,
         };
 
         let ctx = WhisperContext::new_with_params(

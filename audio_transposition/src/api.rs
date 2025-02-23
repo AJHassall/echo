@@ -1,11 +1,13 @@
-use actix_web::{post, web, Error, HttpResponse, http::StatusCode, ResponseError};
+use actix_web::{http::StatusCode, post, web, Error, HttpRequest, HttpResponse, ResponseError};
+use base64::decode;
+use bytes::Bytes;
+use futures::StreamExt;
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, Mutex};
-use std::fmt;
 use std::error::Error as StdError;
+use std::fmt;
+use std::sync::{Arc, Mutex};
 
 use crate::transcription_engine;
-
 
 // Define a custom error type
 #[derive(Debug, Serialize)]
@@ -27,39 +29,29 @@ impl ResponseError for CustomError {
     }
 }
 
-#[derive(Debug, Deserialize)]
-pub struct TranscribeRequest {
-    pub audio: String,
-}
-
 #[derive(Debug, Serialize)]
 pub struct TranscribeResponse {
     pub transcription: String,
 }
 
 #[post("/transcribe")]
-async fn transcribe(
-    req: web::Json<TranscribeRequest>,
+async fn transcribe_stream(
+    encoded_data: web::Json<String>,
     engine: web::Data<Arc<Mutex<transcription_engine::TranscriptionEngine>>>,
 ) -> Result<HttpResponse, Error> {
-    let audio_bytes = base64::decode(&req.audio).map_err(|err| {
-        Error::from(CustomError {
-            message: format!("Base64 decoding error: {}", err),
-        })
-    })?;
+    let audio: Vec<f32> = base64_to_f32(&encoded_data.0)?;
+
+    println!("Processed audio length: {}", audio.len());
 
 
-    let samples: Vec<i16> = audio_bytes
-        .chunks_exact(2)
-        .map(|chunk| i16::from_le_bytes([chunk[0], chunk[1]]))
-        .collect();
+    let audio = resample(audio);
 
-    let mut audio = vec![0.0f32; samples.len().try_into().unwrap()];
-
-    whisper_rs::convert_integer_to_float_audio(&samples, &mut audio).expect("Conversion error");
+    println!("Processed audio length: {}", audio.len());
 
     let mut engine_lock = engine.lock().unwrap();
-    engine_lock.process_audio(audio.as_slice()).expect("error processing audio");
+    engine_lock
+        .process_audio(&audio)
+        .expect("error processing audio");
 
     let segments = engine_lock.get_segments().map_err(|err| {
         Error::from(CustomError {
@@ -70,4 +62,43 @@ async fn transcribe(
     let transcription = segments.join(" ");
 
     Ok(HttpResponse::Ok().json(TranscribeResponse { transcription }))
+}
+
+fn resample(waves_in: Vec<f32>) -> Vec<f32> {
+    use rubato::{
+        Resampler, SincFixedIn, SincInterpolationParameters, SincInterpolationType, WindowFunction,
+    };
+    let params = SincInterpolationParameters {
+        sinc_len: 256,
+        f_cutoff: 0.95,
+        interpolation: SincInterpolationType::Linear,
+        oversampling_factor: 256,
+        window: WindowFunction::BlackmanHarris2,
+    };
+
+    let mut resampler =
+        SincFixedIn::<f32>::new(16000 as f64 / 48000 as f64, 2.0, params, waves_in.len(), 1).unwrap();
+    let input_channels: Vec<Vec<f32>> = vec![waves_in]; // Wrap input in a Vec<Vec<f32>>
+    let waves_out = resampler.process(&input_channels, None).unwrap();
+
+    waves_out.into_iter().flatten().collect()// Return the resampled data for the single channel
+}
+fn base64_to_f32(base64_string: &str) -> Result<Vec<f32>, Box<dyn std::error::Error>> {
+    // 1. Base64 Decode
+    let decoded_bytes = decode(base64_string)?;
+
+    // 2. Byte Array to f32 Conversion
+    if decoded_bytes.len() % 4 != 0 {
+        return Err("Decoded byte array length is not a multiple of 4".into());
+    }
+
+    let mut f32_vector = Vec::with_capacity(decoded_bytes.len() / 4);
+
+    for chunk in decoded_bytes.chunks_exact(4) {
+        let bytes: [u8; 4] = chunk.try_into()?; // Convert slice to array
+        let f32_value = f32::from_le_bytes(bytes); // Convert bytes to f32 (little-endian)
+        f32_vector.push(f32_value);
+    }
+
+    Ok(f32_vector)
 }
