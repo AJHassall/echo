@@ -1,12 +1,12 @@
 {
-  "name": "@jack-wrapper/darwin-arm64",
-  "description": "Prebuilt binary package for `jack-wrapper` on `darwin-arm64`.",
+  "name": "@echo/darwin-x64",
+  "description": "Prebuilt binary package for `echo` on `darwin-x64`.",
   "version": "0.1.0",
   "os": [
     "darwin"
   ],
   "cpu": [
-    "arm64"
+    "x64"
   ],
   "main": "index.node",
   "files": [
@@ -14,10 +14,10 @@
   ],
   "neon": {
     "type": "binary",
-    "rust": "aarch64-apple-darwin",
-    "node": "darwin-arm64",
+    "rust": "x86_64-apple-darwin",
+    "node": "darwin-x64",
     "os": "darwin",
-    "arch": "arm64",
+    "arch": "x64",
     "abi": null
   },
   "author": "",

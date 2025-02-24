@@ -178,6 +178,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "echo"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "futures",
+ "hound",
+ "jack",
+ "neon",
+ "pin-project",
+ "reqwest",
+ "rubato",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-util",
+ "whisper-rs",
+]
+
+[[package]]
 name = "either"
 version = "1.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -721,25 +740,6 @@ dependencies = [
  "libloading 0.7.4",
  "log",
  "pkg-config",
-]
-
-[[package]]
-name = "jack-wrapper"
-version = "0.1.0"
-dependencies = [
- "base64",
- "futures",
- "hound",
- "jack",
- "neon",
- "pin-project",
- "reqwest",
- "rubato",
- "serde",
- "serde_json",
- "tokio",
- "tokio-util",
- "whisper-rs",
 ]
 
 [[package]]

@@ -32,7 +32,7 @@ console.log('👋 This message is being logged by "renderer.js", included via we
 
 import { ipcRenderer } from 'electron';
 import { writeFile } from 'fs';
-const mediaRecorder = require('jack-wrapper')
+const mediaRecorder = require('echo')
 let recordedChunks = [];
 
 mediaRecorder.initialise();
@@ -78,6 +78,8 @@ async function stopRecording() {
 setInterval(function(){ 
   let transcription = mediaRecorder.get();
 
+
+  
   transcription.forEach(e=>{
     console.log(e);
   })

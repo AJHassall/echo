@@ -1,12 +1,12 @@
-# jack-wrapper
+# echo
 
-**jack-wrapper:** wrapper for jack
+**echo:** wrapper for jack
 
 This project was bootstrapped by [create-neon](https://www.npmjs.com/package/create-neon).
 
-## Building jack-wrapper
+## Building echo
 
-Building jack-wrapper requires a [supported version of Node and Rust](https://github.com/neon-bindings/neon#platform-support).
+Building echo requires a [supported version of Node and Rust](https://github.com/neon-bindings/neon#platform-support).
 
 To run the build, run:
 
@@ -16,9 +16,9 @@ $ npm run build
 
 This command uses the [@neon-rs/cli](https://www.npmjs.com/package/@neon-rs/cli) utility to assemble the binary Node addon from the output of `cargo`.
 
-## Exploring jack-wrapper
+## Exploring echo
 
-After building jack-wrapper, you can explore its exports at the Node console:
+After building echo, you can explore its exports at the Node console:
 
 ```sh
 $ npm i
@@ -67,7 +67,7 @@ Runs the unit tests by calling `cargo test`. You can learn more about [adding te
 The directory structure of this project is:
 
 ```
-jack-wrapper/
+echo/
 ├── Cargo.toml
 ├── README.md
 ├── lib/
@@ -75,7 +75,7 @@ jack-wrapper/
 |   ├── index.mts
 |   └── index.cts
 ├── crates/
-|   └── jack-wrapper/
+|   └── echo/
 |       └── src/
 |           └── lib.rs
 ├── platforms/

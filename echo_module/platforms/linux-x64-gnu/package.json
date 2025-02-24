@@ -1,12 +1,12 @@
 {
-  "name": "@jack-wrapper/linux-arm64-gnu",
-  "description": "Prebuilt binary package for `jack-wrapper` on `linux-arm64-gnu`.",
+  "name": "@echo/linux-x64-gnu",
+  "description": "Prebuilt binary package for `echo` on `linux-x64-gnu`.",
   "version": "0.1.0",
   "os": [
     "linux"
   ],
   "cpu": [
-    "arm64"
+    "x64"
   ],
   "main": "index.node",
   "files": [
@@ -14,10 +14,10 @@
   ],
   "neon": {
     "type": "binary",
-    "rust": "aarch64-unknown-linux-gnu",
-    "node": "linux-arm64-gnu",
+    "rust": "x86_64-unknown-linux-gnu",
+    "node": "linux-x64-gnu",
     "os": "linux",
-    "arch": "arm64",
+    "arch": "x64",
     "abi": "gnu"
   },
   "author": "",

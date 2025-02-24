@@ -1,5 +1,5 @@
 {
-  "name": "jack-wrapper",
+  "name": "echo",
   "version": "0.1.0",
   "description": "wrapper for jack",
   "main": "./lib/index.cjs",
@@ -37,7 +37,7 @@
   ],
   "neon": {
     "type": "library",
-    "org": "@jack-wrapper",
+    "org": "@echo",
     "platforms": "common",
     "load": "./src/load.cts"
   },
