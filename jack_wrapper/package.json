@@ -55,5 +55,8 @@
     "neon",
     "rust",
     "node"
-  ]
+  ],
+  "optionalDependencies": {
+
+  }
 }

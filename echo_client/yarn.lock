@@ -2700,11 +2700,6 @@ jack-wrapper@../jack_wrapper/:
   dependencies:
     "@neon-rs/load" "^0.1.82"
 
-"jack-wrapper@file:../jack_wrapper":
-  version "0.1.0"
-  dependencies:
-    "@neon-rs/load" "^0.1.82"
-
 jest-worker@^27.4.5:
   version "27.5.1"
   resolved "https://registry.npmjs.org/jest-worker/-/jest-worker-27.5.1.tgz"

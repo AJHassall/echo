@@ -1,5 +1,4 @@
 import { app, BrowserWindow, dialog, desktopCapturer, ipcMain } from 'electron';
-const recorder = require ('jack-wrapper') 
 const path = require('path');
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -8,16 +7,15 @@ if (require('electron-squirrel-startup')) {
 }
 
 
-recorder.initialise();
 
 function handleTranscription(transcriptionText) {
   console.log("Transcription received from Rust:", transcriptionText);
   // Update your UI or do something with the transcription text here
 }
 
-const recorderControl = recorder.initialise(handleTranscription); // Pass the callback function
+// const recorderControl = recorder.initialise(handleTranscription); // Pass the callback function
 
-recorderControl.start();
+// recorderControl.start();
 
 
 

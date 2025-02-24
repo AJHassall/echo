@@ -17,18 +17,52 @@ use crate::{
     vad::{AudioChunkProcessor, VoiceActivityDetector},
 };
 
-pub struct AudioRecorder;
-
-// Use AtomicBool to control recording state safely across threads
 static IS_RECORDING: AtomicBool = AtomicBool::new(false);
-// Store the Tokio Runtime in a static variable. **Caution: Static Mutability!**
-//  It's generally better to avoid static mutability if possible.
-//  For a more robust approach, consider passing the runtime through context if your module structure allows.
 static RUNTIME: Mutex<Option<Runtime>> = Mutex::new(None);
 static TRANSCRIPTION_ENGINE: Mutex<Option<TranscriptionEngine>> = Mutex::new(None);
+static TRANSCRIPTIONS: Mutex<Option<Vec<String>>> = Mutex::new(None);
 static TRANSCRIPTION_CALLBACK: Mutex<Option<Root<JsFunction>>> = Mutex::new(None); // Store JS callback
 
+pub struct AudioRecorder;
+
 impl AudioRecorder {
+    pub fn get_transcriptions(mut cx: FunctionContext) -> JsResult<JsArray> {
+        let transcription_guard = TRANSCRIPTIONS.lock().unwrap(); // No need for mut, just reading
+        let a;
+    
+        if let Some(transcriptions_ref) = transcription_guard.as_ref() { // Get a reference
+            let transcriptions = transcriptions_ref.clone(); // Clone the Vec for JS array
+            a = JsArray::new(&mut cx, transcriptions.len());
+            println!("{:?}", transcriptions);
+    
+            for (i, s) in transcriptions.iter().enumerate() {
+                let v = cx.string(s);
+                a.set(&mut cx, i as u32, v)?;
+            }
+        } else {
+            a = JsArray::new(&mut cx, 0);
+        }
+    
+        Ok(a)
+    }
+
+    pub fn clear_transcriptions(mut cx: FunctionContext) -> JsResult<JsUndefined> {
+        let mut transcription_guard = TRANSCRIPTIONS.lock().unwrap();
+    
+        transcription_guard.take();
+    
+        *transcription_guard = Some(Vec::new()); // Uncomment if you want to re-initialize
+    
+        Ok(cx.undefined()) // Return undefined, as clearing doesn't return data
+    }
+
+    fn push_transcription(transcription: &str) {
+        let mut transcription_guard = TRANSCRIPTIONS.lock().unwrap();
+
+        let transcriptions = transcription_guard.get_or_insert_with(Vec::new);
+        transcriptions.push(String::from(transcription));
+    }
+
     // Core recording logic, now controlled by IS_RECORDING flag
     async fn run_recorder() {
         println!("Recording task started");
@@ -55,7 +89,7 @@ impl AudioRecorder {
 
             let new_audio = processor.get_current_audio();
             for data in new_audio.to_vec() {
-                transcribe(data);
+                AudioRecorder::push_transcription(&transcribe(data));
             }
 
             tokio::time::sleep(Duration::from_millis(10)).await;
@@ -116,11 +150,12 @@ impl AudioRecorder {
             *runtime_guard = Some(runtime);
         }
 
-        // let callback_js_function = cx.argument::<JsFunction>(0)?;
-        // {
-        //     let mut callback_guard = TRANSCRIPTION_CALLBACK.lock().unwrap();
-        //     *callback_guard = Some(Root::new(&mut cx, &callback_js_function)); // Store the callback (already rooted correctly)
-        // }
+        let transcriptions = vec![]; // Handle error properly in production
+        {
+            // Scope for MutexGuard
+            let mut runtime_guard = TRANSCRIPTIONS.lock().unwrap();
+            *runtime_guard = Some(transcriptions);
+        }
 
         let transcription_engine =
             TranscriptionEngine::new("whisper-models/ggml-tiny.en.bin").unwrap(); // Handle error properly in production
@@ -130,18 +165,13 @@ impl AudioRecorder {
             *engine_guard = Some(transcription_engine);
         }
 
-        // let start_fn = cx.function(AudioRecorder::start)?;
-        // let stop_fn = cx.function(AudioRecorder::stop)?;
-
         let obj = JsObject::new(&mut cx);
-        // obj.set(&mut cx, "start", start_fn)?;
-        // obj.set(&mut cx, "stop", stop_fn)?;
 
         Ok(obj) // Return the object
     }
 }
 
-fn transcribe(data: Vec<f32>) {
+fn transcribe(data: Vec<f32>) -> String {
     println!("here");
     let mut engine_guard = TRANSCRIPTION_ENGINE.lock().unwrap();
     if let Some(engine) = engine_guard.as_mut() {
@@ -154,6 +184,7 @@ fn transcribe(data: Vec<f32>) {
                 // **Call the JavaScript callback with the transcription result here!**
 
                 println!("{}", text.transcription);
+                return text.transcription;
             }
             Err(error) => {
                 println!("transcription error: {}", error);
@@ -163,6 +194,7 @@ fn transcribe(data: Vec<f32>) {
         eprintln!("Error: Tokio runtime not initialized!");
         //  return Err(neon::result::Throw("Tokio runtime not initialized")); // Return an error to JS
     }
+    "".to_owned()
 }
 
 #[cfg(test)]

@@ -9,6 +9,9 @@ declare module "./load.cjs" {
   function start(): undefined;
   function stop(): undefined;
   function initialise(): undefined;
+  function clear(): undefined;
+
+  function get(): Array<String>;
 }
 
 
@@ -25,4 +28,14 @@ export function initialise(): undefined {
   const message = addon.initialise();
 }
 
+export function get(): Array<String> {
+  const message = addon.get();
+
+  return message;
+}
+
+export function clear(): undefined{
+  const message = addon.clear();
+
+}
 
