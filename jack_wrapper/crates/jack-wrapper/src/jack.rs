@@ -5,7 +5,6 @@ use std::{
         atomic::{AtomicBool, Ordering},
         mpsc, Arc, Mutex,
     },
-    thread::sleep,
     time::Duration,
 };
 
