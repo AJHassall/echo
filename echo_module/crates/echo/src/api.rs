@@ -25,20 +25,14 @@ pub fn transcribe_stream(
     audio: Vec<f32>,
     engine: &mut TranscriptionEngine,
 ) -> Result<TranscribeResponse, WhisperError> {
-    println!("Processed audio length: {}", audio.len());
 
     let audio = resample(audio);
-
-    println!("Processed audio length: {}", audio.len());
-
     engine.process_audio(&audio)?;
 
     let transcription = engine
         .get_segments()?
         .join(" ");
 
-
-    println!("{}", transcription);
     Ok(TranscribeResponse { transcription })// Example success case
 }
 

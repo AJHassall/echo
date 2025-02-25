@@ -56,7 +56,5 @@
     "rust",
     "node"
   ],
-  "optionalDependencies": {
-
-  }
+  "optionalDependencies": {}
 }

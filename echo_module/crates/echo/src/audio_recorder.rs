@@ -28,8 +28,7 @@ impl AudioRecorder {
         if let Some(transcriptions_ref) = transcription_guard.as_ref() { // Get a reference
             let transcriptions = transcriptions_ref.clone(); // Clone the Vec for JS array
             a = JsArray::new(&mut cx, transcriptions.len());
-            println!("{:?}", transcriptions);
-    
+                
             for (i, s) in transcriptions.iter().enumerate() {
                 let v = cx.string(s);
                 a.set(&mut cx, i as u32, v)?;
@@ -146,7 +145,6 @@ impl AudioRecorder {
 }
 
 fn transcribe(data: Vec<f32>) -> String {
-    println!("here");
     let mut engine_guard = TRANSCRIPTION_ENGINE.lock().unwrap();
     if let Some(engine) = engine_guard.as_mut() {
 
@@ -154,8 +152,6 @@ fn transcribe(data: Vec<f32>) -> String {
 
         match response {
             Ok(text) => {
-
-                println!("{}", text.transcription);
                 return text.transcription;
             }
             Err(error) => {
