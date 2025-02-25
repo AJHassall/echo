@@ -345,11 +345,6 @@
   dependencies:
     cross-spawn "^7.0.1"
 
-"@neon-rs/load@^0.1.82":
-  version "0.1.82"
-  resolved "https://registry.yarnpkg.com/@neon-rs/load/-/load-0.1.82.tgz#7066547b5899ea2c5f40ff81b3939df0a4f6ce64"
-  integrity sha512-H4Gu2o5kPp+JOEhRrOQCnJnf7X6sv9FBLttM/wSbb4efsgFWeHzfU/ItZ01E5qqEk+U6QGdeVO7lxXIAtYHr5A==
-
 "@nodelib/fs.scandir@2.1.5":
   version "2.1.5"
   resolved "https://registry.npmjs.org/@nodelib/fs.scandir/-/fs.scandir-2.1.5.tgz"
@@ -1582,11 +1577,6 @@ dot-case@^3.0.4:
   dependencies:
     no-case "^3.0.4"
     tslib "^2.0.3"
-
-echo@../echo_module/:
-  version "0.1.0"
-  dependencies:
-    "@neon-rs/load" "^0.1.82"
 
 ee-first@1.1.1:
   version "1.1.1"

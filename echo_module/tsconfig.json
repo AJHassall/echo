@@ -1,9 +1,24 @@
 {
-  "extends": "@tsconfig/node20/tsconfig.json",
+  "include": ["lib"],
+  "exclude": ["**/compiler_depend.js"],
   "compilerOptions": {
-    "module": "node16",
+    "rootDir": "lib",
+    "allowJs": true,
+    "allowSyntheticDefaultImports": true,
     "declaration": true,
-    "outDir": "lib",
-  },
-  "exclude": ["lib", "**/compiler_depend.ts"]
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "lib": ["es2021"],
+    "module": "Node16",
+    "moduleResolution": "node16",
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitAny": true,
+    "resolveJsonModule": true,
+    "outDir": "./buildjs",
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "strict": true,
+    "target": "es2021"
+  }
 }

@@ -1,21 +1,14 @@
 {
-  "name": "echo",
+  "name": "echo_transcriber",
   "version": "0.1.0",
   "description": "wrapper for jack",
-  "main": "./lib/index.cjs",
-  "scripts": {
-    "test": "tsc &&cargo test",
-    "cargo-build": "tsc &&cargo build --message-format=json-render-diagnostics > cargo.log",
-    "cross-build": "tsc &&cross build --message-format=json-render-diagnostics > cross.log",
-    "postcargo-build": "neon dist < cargo.log",
-    "postcross-build": "neon dist -m /target < cross.log",
-    "debug": "npm run cargo-build --",
-    "build": "npm run cargo-build -- --release",
-    "cross": "npm run cross-build -- --release",
-    "prepack": "tsc &&neon update",
-    "version": "neon bump --binaries platforms && git add .",
-    "release": "gh workflow run release.yml -f dryrun=false -f version=patch",
-    "dryrun": "gh workflow run publish.yml -f dryrun=true"
+  "main": "buildjs/index.cjs",
+    "scripts": {
+    "build:addon": "cargo build --release --message-format=json > cargo.log && npx neon dist < cargo.log",
+    "build": "yarn build:addon && node install/cleanbuild.js && tsc",
+    "prepack": "yarn build && yarn test",
+    "test": "node test/index.test.js",
+    "postinstall": "yarn build:addon"
   },
   "author": "",
   "license": "ISC",
@@ -37,7 +30,7 @@
   ],
   "neon": {
     "type": "library",
-    "org": "@echo",
+    "org": "",
     "platforms": "common",
     "load": "./src/load.cts"
   },
