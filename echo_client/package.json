@@ -16,7 +16,6 @@
     "name": "",
     "email": ""
   },
-  
   "license": "MIT",
   "devDependencies": {
     "@electron-forge/cli": "^6.0.5",
@@ -32,7 +31,6 @@
     "node-loader": "^2.0.0",
     "style-loader": "^3.0.0"
   },
-
   "dependencies": {
     "echo_transcriber": "../echo_module",
     "electron-squirrel-startup": "^1.0.0"
