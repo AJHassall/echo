@@ -31,9 +31,10 @@ import './index.css';
 console.log('👋 This message is being logged by "renderer.js", included via webpack');
 
 import { ipcRenderer } from 'electron';
-import { writeFile } from 'fs';
-const mediaRecorder = require('echo')
+import mediaRecorder from 'echo_transcriber'
 let recordedChunks = [];
+
+console.log(mediaRecorder);
 
 mediaRecorder.initialise();
 

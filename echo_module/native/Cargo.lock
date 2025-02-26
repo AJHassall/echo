@@ -178,7 +178,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "echo"
+name = "echo_transcriber"
 version = "0.1.0"
 dependencies = [
  "base64",
