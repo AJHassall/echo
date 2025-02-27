@@ -9,8 +9,8 @@ exports.clear = clear;
 exports.get_energy = get_energy;
 // The Rust addon.
 const addon = require('../native/index.node');
-function start(silence_threshold, duration_threshhold) {
-    const message = addon.start(silence_threshold, duration_threshhold);
+function start(silence_threshold, duration_threshhold, callback) {
+    const message = addon.start(silence_threshold, duration_threshhold, callback);
 }
 function stop() {
     const message = addon.stop();

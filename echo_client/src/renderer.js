@@ -23,9 +23,7 @@ stopBtn.onclick = e => {
 var silence_threshold = 1
 var duration_threshhold = 25;
 async function startRecording() {
-
-  debugger;
-  mediaRecorder.start(silence_threshold, duration_threshhold);
+  mediaRecorder.start(silence_threshold, duration_threshhold, function(e){console.log(e)});
 }
 
 

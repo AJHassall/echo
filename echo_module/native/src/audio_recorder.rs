@@ -1,13 +1,13 @@
 use neon::prelude::*;
 use serde_json::Number;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::runtime::Runtime;
 // Import Runtime
 
-use crate::{api, vad};
 use crate::transcription_engine::TranscriptionEngine;
+use crate::{api, vad};
 use crate::{
     audio::AudioDataReceiver,
     jack::JackClient,
@@ -19,7 +19,6 @@ static RUNTIME: Mutex<Option<Runtime>> = Mutex::new(None);
 static TRANSCRIPTION_ENGINE: Mutex<Option<TranscriptionEngine>> = Mutex::new(None);
 static TRANSCRIPTIONS: Mutex<Option<Vec<String>>> = Mutex::new(None);
 static MOST_RECENT_ENERGY: Mutex<f64> = Mutex::new(0.0);
-
 
 pub struct AudioRecorder;
 
@@ -75,7 +74,11 @@ impl AudioRecorder {
         *transcriptions = energy;
     }
 
-    async fn run_recorder(audio_chunk_processor: AudioChunkProcessor) {
+    async fn run_recorder(
+        audio_chunk_processor: AudioChunkProcessor,
+        channel: neon::event::Channel,
+        callback: Arc<Mutex<Root<JsFunction>>>, // Receive Arc<Mutex<Root<JsFunction>>>
+    ) {
         println!("Recording task started");
 
         let mut jack_client = JackClient::new();
@@ -88,11 +91,26 @@ impl AudioRecorder {
             if let Ok(receiver_guard) = receiver_arc.lock() {
                 if let Ok(audio_data) = receiver_guard.recv() {
                     processor.process_chunk(audio_data);
-                    
                 } else {
                     break;
                 }
             }
+            let callback_arc_clone = callback.clone(); // Clone the Arc
+
+            channel.send(move |mut cx| {
+                let callback_guard = callback_arc_clone.lock().unwrap();
+                let callback_clone = callback_guard.clone(&mut cx); // Clone Root inside the closure
+                let callback = callback_clone.into_inner(&mut cx);// convert to handle.
+                let this = cx.undefined();
+                let args = vec![
+                    cx.number(2).upcast(), // Or any data you want to send
+                ];
+
+                callback.call(&mut cx, this, args)?;
+
+                Ok(())
+            });
+
 
             let new_audio = processor.get_current_audio();
             for data in new_audio.iter().cloned() {
@@ -101,7 +119,6 @@ impl AudioRecorder {
 
             let energy = processor.get_most_recent_energy();
             AudioRecorder::set_energy(energy);
-            
 
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
@@ -110,30 +127,35 @@ impl AudioRecorder {
     }
 
     pub fn start(mut cx: FunctionContext) -> JsResult<JsUndefined> {
-
         let silence_threshhold = cx.argument::<JsNumber>(0)?;
         let duration_threshold = cx.argument::<JsNumber>(1)?;
+
+        let callback = cx.argument::<JsFunction>(2)?.root(&mut cx);
 
         let silence_threshhold = silence_threshhold.value(&mut cx);
         let duration_threshold = duration_threshold.value(&mut cx);
 
-
         if IS_RECORDING.load(Ordering::SeqCst) {
-            return Ok(cx.undefined()); // Or return an error if you prefer
+            return Ok(cx.undefined());
         }
 
         IS_RECORDING.store(true, Ordering::SeqCst);
 
         let runtime_guard = RUNTIME.lock().unwrap();
         if let Some(runtime) = &*runtime_guard {
-            
             let vad = VoiceActivityDetector::new();
             let mut processor = AudioChunkProcessor::new(vad);
 
             processor.set_silence_duration_threshold(silence_threshhold);
             processor.set_silence_threshold(duration_threshold);
 
-            runtime.spawn(AudioRecorder::run_recorder(processor)); // Use runtime.spawn!
+            let callback_arc = Arc::new(Mutex::new(callback));
+
+            runtime.spawn(AudioRecorder::run_recorder(
+                processor,
+                cx.channel(),
+                callback_arc,
+            ));
         } else {
             eprintln!("Error: Tokio runtime not initialized!");
         }
