@@ -1,3 +1,5 @@
+use futures::channel;
+use lazy_static::lazy_static;
 use neon::prelude::*;
 use serde_json::Number;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -6,6 +8,7 @@ use std::time::Duration;
 use tokio::runtime::Runtime;
 // Import Runtime
 
+use crate::event_publisher::{initialise_event_publisher, EventPublisher}; // Import the EventPublisher type.
 use crate::transcription_engine::TranscriptionEngine;
 use crate::{api, vad};
 use crate::{
@@ -14,11 +17,13 @@ use crate::{
     vad::{AudioChunkProcessor, VoiceActivityDetector},
 };
 
-static IS_RECORDING: AtomicBool = AtomicBool::new(false);
-static RUNTIME: Mutex<Option<Runtime>> = Mutex::new(None);
-static TRANSCRIPTION_ENGINE: Mutex<Option<TranscriptionEngine>> = Mutex::new(None);
-static TRANSCRIPTIONS: Mutex<Option<Vec<String>>> = Mutex::new(None);
-static MOST_RECENT_ENERGY: Mutex<f64> = Mutex::new(0.0);
+lazy_static! {
+    static ref IS_RECORDING: AtomicBool = AtomicBool::new(false);
+    static ref RUNTIME: Mutex<Option<Runtime>> = Mutex::new(None);
+    static ref TRANSCRIPTION_ENGINE: Mutex<Option<TranscriptionEngine>> = Mutex::new(None);
+    static ref TRANSCRIPTIONS: Mutex<Option<Vec<String>>> = Mutex::new(None);
+    static ref MOST_RECENT_ENERGY: Mutex<f64> = Mutex::new(0.0);
+}
 
 pub struct AudioRecorder;
 
@@ -68,17 +73,13 @@ impl AudioRecorder {
     }
 
     fn set_energy(energy: f64) {
-        let mut transcription_guard = MOST_RECENT_ENERGY.lock().unwrap();
+        let transcription_guard = MOST_RECENT_ENERGY.lock().unwrap();
 
         let mut transcriptions = transcription_guard;
         *transcriptions = energy;
     }
 
-    async fn run_recorder(
-        audio_chunk_processor: AudioChunkProcessor,
-        channel: neon::event::Channel,
-        callback: Arc<Mutex<Root<JsFunction>>>, // Receive Arc<Mutex<Root<JsFunction>>>
-    ) {
+    async fn run_recorder(audio_chunk_processor: AudioChunkProcessor) {
         println!("Recording task started");
 
         let mut jack_client = JackClient::new();
@@ -95,22 +96,10 @@ impl AudioRecorder {
                     break;
                 }
             }
-            let callback_arc_clone = callback.clone(); // Clone the Arc
 
-            channel.send(move |mut cx| {
-                let callback_guard = callback_arc_clone.lock().unwrap();
-                let callback_clone = callback_guard.clone(&mut cx); // Clone Root inside the closure
-                let callback = callback_clone.into_inner(&mut cx);// convert to handle.
-                let this = cx.undefined();
-                let args = vec![
-                    cx.number(2).upcast(), // Or any data you want to send
-                ];
+            //sending audio back to client
 
-                callback.call(&mut cx, this, args)?;
-
-                Ok(())
-            });
-
+            EventPublisher::publish_if_available(String::from("Hello from Rust!"));
 
             let new_audio = processor.get_current_audio();
             for data in new_audio.iter().cloned() {
@@ -130,8 +119,6 @@ impl AudioRecorder {
         let silence_threshhold = cx.argument::<JsNumber>(0)?;
         let duration_threshold = cx.argument::<JsNumber>(1)?;
 
-        let callback = cx.argument::<JsFunction>(2)?.root(&mut cx);
-
         let silence_threshhold = silence_threshhold.value(&mut cx);
         let duration_threshold = duration_threshold.value(&mut cx);
 
@@ -149,13 +136,7 @@ impl AudioRecorder {
             processor.set_silence_duration_threshold(silence_threshhold);
             processor.set_silence_threshold(duration_threshold);
 
-            let callback_arc = Arc::new(Mutex::new(callback));
-
-            runtime.spawn(AudioRecorder::run_recorder(
-                processor,
-                cx.channel(),
-                callback_arc,
-            ));
+            runtime.spawn(AudioRecorder::run_recorder(processor));
         } else {
             eprintln!("Error: Tokio runtime not initialized!");
         }
@@ -176,6 +157,11 @@ impl AudioRecorder {
     }
 
     pub fn initialise(mut cx: FunctionContext) -> JsResult<JsObject> {
+        let event_receiver = cx.argument::<JsFunction>(0)?.root(&mut cx);
+        let channel = cx.channel();
+
+        initialise_event_publisher(Arc::new(Mutex::new(event_receiver)), channel);
+
         let runtime = Runtime::new().unwrap();
         {
             // Scope for MutexGuard
@@ -190,7 +176,7 @@ impl AudioRecorder {
         }
 
         let transcription_engine =
-            TranscriptionEngine::new("whisper-models/ggml-tiny.en.bin").unwrap(); // Handle error properly in production
+            TranscriptionEngine::new("whisper-models/ggml-tiny.en.bin").unwrap();
         {
             let mut engine_guard = TRANSCRIPTION_ENGINE.lock().unwrap();
             *engine_guard = Some(transcription_engine);

@@ -3,7 +3,7 @@ import './index.css';
 import { ipcRenderer } from 'electron';
 import mediaRecorder from 'echo_transcriber'
 
-mediaRecorder.initialise();
+mediaRecorder.initialise(function(e){console.log(e)});
 
 const startBtn = document.getElementById('startBtn');
 startBtn.onclick = e => {
@@ -23,7 +23,7 @@ stopBtn.onclick = e => {
 var silence_threshold = 1
 var duration_threshhold = 25;
 async function startRecording() {
-  mediaRecorder.start(silence_threshold, duration_threshhold, function(e){console.log(e)});
+  mediaRecorder.start(silence_threshold, duration_threshhold);
 }
 
 

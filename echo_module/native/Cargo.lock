@@ -185,6 +185,7 @@ dependencies = [
  "futures",
  "hound",
  "jack",
+ "lazy_static",
  "neon",
  "pin-project",
  "reqwest",

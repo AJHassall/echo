@@ -7,6 +7,7 @@ mod vad;
 mod audio;
 mod transcription_engine;
 mod api;
+mod event_publisher;
 
 #[neon::main]
 fn main(mut cx: ModuleContext) -> NeonResult<()> {
