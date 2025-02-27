@@ -1,45 +1,9 @@
-/**
- * This file will automatically be loaded by webpack and run in the "renderer" context.
- * To learn more about the differences between the "main" and the "renderer" context in
- * Electron, visit:
- *
- * https://electronjs.org/docs/tutorial/application-architecture#main-and-renderer-processes
- *
- * By default, Node.js integration in this file is disabled. When enabling Node.js integration
- * in a renderer process, please be aware of potential security implications. You can read
- * more about security risks here:
- *
- * https://electronjs.org/docs/tutorial/security
- *
- * To enable Node.js integration in this file, open up `main.js` and enable the `nodeIntegration`
- * flag:
- *
- * ```
- *  // Create the browser window.
- *  mainWindow = new BrowserWindow({
- *    width: 800,
- *    height: 600,
- *    webPreferences: {
- *      nodeIntegration: true
- *    }
- *  });
- * ```
- */
-
 import './index.css';
-
-console.log('👋 This message is being logged by "renderer.js", included via webpack');
 
 import { ipcRenderer } from 'electron';
 import mediaRecorder from 'echo_transcriber'
-let recordedChunks = [];
-
-console.log(mediaRecorder);
 
 mediaRecorder.initialise();
-
-// Buttons
-const videoElement = document.querySelector('video');
 
 const startBtn = document.getElementById('startBtn');
 startBtn.onclick = e => {
@@ -55,20 +19,13 @@ stopBtn.onclick = e => {
 };
 
 
-async function getVideoSources() {
-  const inputSources = await ipcRenderer.invoke('getSources')
-
-  inputSources.forEach(source => {
-    const element = document.createElement("option")
-    element.value = source.id
-    element.innerHTML = source.name
-    selectMenu.appendChild(element)
-  });
-}
-
-
+//silence_threshold: number, duration_threshhold: number
+var silence_threshold = 1
+var duration_threshhold = 25;
 async function startRecording() {
-  mediaRecorder.start();
+
+  debugger;
+  mediaRecorder.start(silence_threshold, duration_threshhold);
 }
 
 
@@ -76,16 +33,76 @@ async function stopRecording() {
   mediaRecorder.stop()
 }
 
-setInterval(function(){ 
+function appendTranscription(transcription) {
+  const list = document.getElementById('transcriptionList');
+  const newItem = document.createElement('div');
+  newItem.className = 'transcriptionItem';
+  newItem.textContent = transcription;
+  list.appendChild(newItem);
+}
+
+//TODO set this as a call back in Neon rs
+
+setInterval(function () {
   let transcription = mediaRecorder.get();
 
-
-  
-  transcription.forEach(e=>{
-    console.log(e);
+  transcription.forEach(e => {
+    appendTranscription(transcription);
   })
 
-
   mediaRecorder.clear();
-  
-  }, 1000);
+
+}, 1000);
+
+//TODO set this as a call back in Neon rs
+
+setInterval(function () {
+  let energy = mediaRecorder.get_energy();
+  updateEnergyDisplay(energy)
+
+
+}, 500);
+
+
+
+function updateEnergyDisplay(energy) {
+  const displayElement = document.getElementById("energyDisplay");
+  if (displayElement) {
+    if (energy !== null) {
+      displayElement.textContent = "Energy: " + energy.toFixed(2);
+    } else {
+      displayElement.textContent = "Energy: Error";
+    }
+  }
+}
+
+function sliderValueChanged(sliderElement) {
+  const value = parseFloat(sliderElement.value);
+  const sliderId = sliderElement.id;
+  const displayElementId = sliderId + 'Value';
+  const displayElement = document.getElementById(displayElementId);
+
+  if (displayElement) {
+    displayElement.textContent = `${sliderId}:` + value;
+  }
+
+  if (displayElementId == "AudioVolumeThreshold") {
+    silence_threshold = value;
+  }
+
+  else {
+    duration_threshhold = value;
+  }
+
+}
+
+const slider = document.getElementById('AudioVolumeThreshold');
+const slider1 = document.getElementById('PauseTime');
+
+slider.addEventListener('input', function () {
+  sliderValueChanged(this); 
+});
+
+slider1.addEventListener('input', function () {
+  sliderValueChanged(this);
+});

@@ -13,8 +13,6 @@ module.exports = function (source) {
     'index.node'
   );
 
-  console.log('inside loader');
-
   // Check if the native module exists using fs.access
   fs.access(modulePath, fs.constants.F_OK, (err) => { // Use fs.constants.F_OK
     if (err) {

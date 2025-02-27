@@ -7,19 +7,6 @@ if (require('electron-squirrel-startup')) {
   app.quit();
 }
 
-
-
-function handleTranscription(transcriptionText) {
-  console.log("Transcription received from Rust:", transcriptionText);
-  // Update your UI or do something with the transcription text here
-}
-
-// const recorderControl = recorder.initialise(handleTranscription); // Pass the callback function
-
-// recorderControl.start();
-
-
-
 const createWindow = () => {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
@@ -77,3 +64,5 @@ ipcMain.handle('showSaveDialog', async () => {
 ipcMain.handle('getOperatingSystem', () => {
   return process.platform
 })
+
+

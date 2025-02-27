@@ -17,6 +17,9 @@ fn main(mut cx: ModuleContext) -> NeonResult<()> {
     cx.export_function("get", AudioRecorder::get_transcriptions)?;
     cx.export_function("clear", AudioRecorder::clear_transcriptions)?;
 
+    cx.export_function("get_energy", AudioRecorder::get_most_recent_energy)?;
+
+
     
     Ok(())
 }

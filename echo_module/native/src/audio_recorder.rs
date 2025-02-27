@@ -1,12 +1,13 @@
 use neon::prelude::*;
+use serde_json::Number;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::Duration;
 use tokio::runtime::Runtime;
- // Import Runtime
+// Import Runtime
 
-use crate::api;
-use crate::transcription_engine::{TranscriptionEngine};
+use crate::{api, vad};
+use crate::transcription_engine::TranscriptionEngine;
 use crate::{
     audio::AudioDataReceiver,
     jack::JackClient,
@@ -17,6 +18,8 @@ static IS_RECORDING: AtomicBool = AtomicBool::new(false);
 static RUNTIME: Mutex<Option<Runtime>> = Mutex::new(None);
 static TRANSCRIPTION_ENGINE: Mutex<Option<TranscriptionEngine>> = Mutex::new(None);
 static TRANSCRIPTIONS: Mutex<Option<Vec<String>>> = Mutex::new(None);
+static MOST_RECENT_ENERGY: Mutex<f64> = Mutex::new(0.0);
+
 
 pub struct AudioRecorder;
 
@@ -24,11 +27,12 @@ impl AudioRecorder {
     pub fn get_transcriptions(mut cx: FunctionContext) -> JsResult<JsArray> {
         let transcription_guard = TRANSCRIPTIONS.lock().unwrap(); // No need for mut, just reading
         let a;
-    
-        if let Some(transcriptions_ref) = transcription_guard.as_ref() { // Get a reference
+
+        if let Some(transcriptions_ref) = transcription_guard.as_ref() {
+            // Get a reference
             let transcriptions = transcriptions_ref.clone(); // Clone the Vec for JS array
             a = JsArray::new(&mut cx, transcriptions.len());
-                
+
             for (i, s) in transcriptions.iter().enumerate() {
                 let v = cx.string(s);
                 a.set(&mut cx, i as u32, v)?;
@@ -36,17 +40,17 @@ impl AudioRecorder {
         } else {
             a = JsArray::new(&mut cx, 0);
         }
-    
+
         Ok(a)
     }
 
     pub fn clear_transcriptions(mut cx: FunctionContext) -> JsResult<JsUndefined> {
         let mut transcription_guard = TRANSCRIPTIONS.lock().unwrap();
-    
+
         transcription_guard.take();
-    
+
         *transcription_guard = Some(Vec::new()); // Uncomment if you want to re-initialize
-    
+
         Ok(cx.undefined()) // Return undefined, as clearing doesn't return data
     }
 
@@ -57,21 +61,34 @@ impl AudioRecorder {
         transcriptions.push(String::from(transcription));
     }
 
-    // Core recording logic, now controlled by IS_RECORDING flag
-    async fn run_recorder() {
+    pub fn get_most_recent_energy(mut cx: FunctionContext) -> JsResult<JsNumber> {
+        let transcription_guard = MOST_RECENT_ENERGY.lock().unwrap(); // No need for mut, just reading
+        let transcriptions = transcription_guard;
+
+        Ok(cx.number(*transcriptions))
+    }
+
+    fn set_energy(energy: f64) {
+        let mut transcription_guard = MOST_RECENT_ENERGY.lock().unwrap();
+
+        let mut transcriptions = transcription_guard;
+        *transcriptions = energy;
+    }
+
+    async fn run_recorder(audio_chunk_processor: AudioChunkProcessor) {
         println!("Recording task started");
 
         let mut jack_client = JackClient::new();
         let receiver_arc = jack_client.get_audio_receiver();
         jack_client.start_processing();
 
-        let vad = VoiceActivityDetector::new();
-        let mut processor = AudioChunkProcessor::new(vad);
+        let mut processor = audio_chunk_processor;
 
         while IS_RECORDING.load(Ordering::SeqCst) {
             if let Ok(receiver_guard) = receiver_arc.lock() {
                 if let Ok(audio_data) = receiver_guard.recv() {
                     processor.process_chunk(audio_data);
+                    
                 } else {
                     break;
                 }
@@ -82,6 +99,10 @@ impl AudioRecorder {
                 AudioRecorder::push_transcription(&transcribe(data));
             }
 
+            let energy = processor.get_most_recent_energy();
+            AudioRecorder::set_energy(energy);
+            
+
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
 
@@ -89,6 +110,14 @@ impl AudioRecorder {
     }
 
     pub fn start(mut cx: FunctionContext) -> JsResult<JsUndefined> {
+
+        let silence_threshhold = cx.argument::<JsNumber>(0)?;
+        let duration_threshold = cx.argument::<JsNumber>(1)?;
+
+        let silence_threshhold = silence_threshhold.value(&mut cx);
+        let duration_threshold = duration_threshold.value(&mut cx);
+
+
         if IS_RECORDING.load(Ordering::SeqCst) {
             return Ok(cx.undefined()); // Or return an error if you prefer
         }
@@ -97,7 +126,14 @@ impl AudioRecorder {
 
         let runtime_guard = RUNTIME.lock().unwrap();
         if let Some(runtime) = &*runtime_guard {
-            runtime.spawn(AudioRecorder::run_recorder()); // Use runtime.spawn!
+            
+            let vad = VoiceActivityDetector::new();
+            let mut processor = AudioChunkProcessor::new(vad);
+
+            processor.set_silence_duration_threshold(silence_threshhold);
+            processor.set_silence_threshold(duration_threshold);
+
+            runtime.spawn(AudioRecorder::run_recorder(processor)); // Use runtime.spawn!
         } else {
             eprintln!("Error: Tokio runtime not initialized!");
         }
@@ -118,14 +154,14 @@ impl AudioRecorder {
     }
 
     pub fn initialise(mut cx: FunctionContext) -> JsResult<JsObject> {
-        let runtime = Runtime::new().unwrap(); 
+        let runtime = Runtime::new().unwrap();
         {
             // Scope for MutexGuard
             let mut runtime_guard = RUNTIME.lock().unwrap();
             *runtime_guard = Some(runtime);
         }
 
-        let transcriptions = vec![]; 
+        let transcriptions = vec![];
         {
             let mut runtime_guard = TRANSCRIPTIONS.lock().unwrap();
             *runtime_guard = Some(transcriptions);
@@ -140,14 +176,13 @@ impl AudioRecorder {
 
         let obj = JsObject::new(&mut cx);
 
-        Ok(obj) 
+        Ok(obj)
     }
 }
 
 fn transcribe(data: Vec<f32>) -> String {
     let mut engine_guard = TRANSCRIPTION_ENGINE.lock().unwrap();
     if let Some(engine) = engine_guard.as_mut() {
-
         let response = api::transcribe_stream(data, engine);
 
         match response {
@@ -165,6 +200,4 @@ fn transcribe(data: Vec<f32>) -> String {
 }
 
 #[cfg(test)]
-mod tests {
-    
-}
+mod tests {}
