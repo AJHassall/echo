@@ -3,7 +3,15 @@ import './index.css';
 import { ipcRenderer } from 'electron';
 import mediaRecorder from 'echo_transcriber'
 
-mediaRecorder.initialise(function(e){console.log(e)});
+mediaRecorder.initialise(function(e){
+  
+
+  if (e.event_type != "new_energy"){
+
+    console.log(e)
+  }
+
+});
 
 const startBtn = document.getElementById('startBtn');
 startBtn.onclick = e => {
@@ -39,27 +47,27 @@ function appendTranscription(transcription) {
   list.appendChild(newItem);
 }
 
-//TODO set this as a call back in Neon rs
+// //TODO set this as a call back in Neon rs
 
-setInterval(function () {
-  let transcription = mediaRecorder.get();
+// setInterval(function () {
+//   let transcription = mediaRecorder.get();
 
-  transcription.forEach(e => {
-    appendTranscription(transcription);
-  })
+//   transcription.forEach(e => {
+//     appendTranscription(transcription);
+//   })
 
-  mediaRecorder.clear();
+//   mediaRecorder.clear();
 
-}, 1000);
+// }, 1000);
 
-//TODO set this as a call back in Neon rs
+// //TODO set this as a call back in Neon rs
 
-setInterval(function () {
-  let energy = mediaRecorder.get_energy();
-  updateEnergyDisplay(energy)
+// setInterval(function () {
+//   let energy = mediaRecorder.get_energy();
+//   updateEnergyDisplay(energy)
 
 
-}, 500);
+// }, 500);
 
 
 

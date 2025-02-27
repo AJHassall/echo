@@ -1,7 +1,7 @@
 // event_publisher.rs
+use lazy_static::lazy_static;
 use neon::prelude::*;
 use std::sync::{Arc, Mutex};
-use lazy_static::lazy_static;
 
 lazy_static! {
     static ref EVENT_PUBLISHER: Mutex<Option<EventPublisher>> = Mutex::new(None);
@@ -16,7 +16,7 @@ impl EventPublisher {
         EventPublisher { callback, channel }
     }
 
-    fn publish(&self, data: String) {
+    fn publish(&self, event_type: String, message: String) {
         let callback_arc_clone = self.callback.clone();
         let channel = self.channel.clone();
 
@@ -25,38 +25,42 @@ impl EventPublisher {
             let callback_clone = callback_guard.clone(&mut cx);
             let callback = callback_clone.into_inner(&mut cx);
             let this = cx.undefined();
-            
-            let message = cx.string(&data.clone()).upcast();
-            let args = vec![message];
+
+            let event = cx.empty_object();
+            let event_type = cx.string(event_type);
+            let message = cx.string(message);
+
+            event.set(&mut cx, "event_type", event_type)?;
+            event.set(&mut cx, "message", message)?;
+
+            //let message = cx.string(&data.clone()).upcast();
+            let args = vec![event.upcast()];
 
             callback.call(&mut cx, this, args)?;
 
             Ok(())
         });
-        
     }
 
-    pub fn publish_if_available(data: String) {
+    pub fn publish_if_available(event_type: String, message: String) {
         if let Some(guard) = Self::get_event_publisher() {
             if let Some(publisher) = guard.as_ref() {
-                publisher.publish(data);
+                publisher.publish(event_type, message);
             }
         }
     }
 
-    
     pub fn get_event_publisher() -> Option<std::sync::MutexGuard<'static, Option<EventPublisher>>> {
         EVENT_PUBLISHER.lock().ok()
     }
-    
 }
 
-
-pub fn initialise_event_publisher(callback: Arc<Mutex<Root<JsFunction>>>, channel: neon::event::Channel) {
+pub fn initialise_event_publisher(
+    callback: Arc<Mutex<Root<JsFunction>>>,
+    channel: neon::event::Channel,
+) {
     let publisher = EventPublisher::new(callback, channel);
 
     let mut guard = EVENT_PUBLISHER.lock().unwrap();
     *guard = Some(publisher);
-    
 }
-
