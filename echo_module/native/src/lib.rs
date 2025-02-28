@@ -4,11 +4,12 @@ use neon::prelude::*;
 
 mod audio_recorder;
 mod jack;
-mod vad;
 mod audio;
 mod transcription_engine;
 mod api;
 mod event_publisher;
+mod web_rtc_vad;
+mod audio_manager;
 
 pub fn start(mut cx: FunctionContext) -> JsResult<JsUndefined> {
     let silence_threshhold = cx.argument::<JsNumber>(0)?;

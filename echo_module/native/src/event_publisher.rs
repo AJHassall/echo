@@ -16,7 +16,7 @@ impl EventPublisher {
         EventPublisher { callback, channel }
     }
 
-    fn publish(&self, event_type: String, message: String) {
+    fn publish(&self, event_type: String, message: String, event_id: String) {
         let callback_arc_clone = self.callback.clone();
         let channel = self.channel.clone();
 
@@ -29,9 +29,11 @@ impl EventPublisher {
             let event = cx.empty_object();
             let event_type = cx.string(event_type);
             let message = cx.string(message);
+            let event_id = cx.string(event_id);
 
             event.set(&mut cx, "event_type", event_type)?;
             event.set(&mut cx, "message", message)?;
+            event.set(&mut cx, "event_id", event_id)?;
 
             //let message = cx.string(&data.clone()).upcast();
             let args = vec![event.upcast()];
@@ -42,10 +44,10 @@ impl EventPublisher {
         });
     }
 
-    pub fn publish_if_available(event_type: String, message: String) {
+    pub fn publish_if_available(event_type: String, message: String, event_id: String) {
         if let Some(guard) = Self::get_event_publisher() {
             if let Some(publisher) = guard.as_ref() {
-                publisher.publish(event_type, message);
+                publisher.publish(event_type, message, event_id);
             }
         }
     }

@@ -1,23 +1,19 @@
-use futures::channel;
 use lazy_static::lazy_static;
 use neon::event::Channel;
 use neon::handle::Root;
 use neon::types::JsFunction;
-use serde_json::Number;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::runtime::Runtime;
+use tokio_util::bytes::buf;
+use webrtc_vad::VadMode;
 // Import Runtime
 
 use crate::event_publisher::{initialise_event_publisher, EventPublisher}; // Import the EventPublisher type.
 use crate::transcription_engine::TranscriptionEngine;
-use crate::{api, vad};
-use crate::{
-    audio::AudioDataReceiver,
-    jack::JackClient,
-    vad::{AudioChunkProcessor, VoiceActivityDetector},
-};
+use crate::{api, audio, web_rtc_vad};
+use crate::{audio::AudioDataReceiver, audio_manager::AudioChunkProcessor, jack::JackClient};
 
 lazy_static! {
     static ref IS_RECORDING: AtomicBool = AtomicBool::new(false);
@@ -28,42 +24,55 @@ lazy_static! {
 pub struct AudioRecorder;
 
 impl AudioRecorder {
-    pub fn send_transcription<T: Into<String>>(transcription: T) {
-        EventPublisher::publish_if_available("transcription".to_string(), transcription.into());
-    }
-
-    pub fn send_most_recent_energy<T: Into<String>>(energy: T) {
-        return;
+    pub fn send_transcription<T: Into<String>>(transcription: T, event_id: String) {
         EventPublisher::publish_if_available(
-            "new_energy".to_string(),
-            energy.into(),
+            "transcription".to_string(),
+            transcription.into(),
+            event_id,
         );
     }
 
+    pub fn send_most_recent_energy<T: Into<String>>(energy: T) {
+        EventPublisher::publish_if_available(
+            "new_energy".to_string(),
+            energy.into(),
+            "todo".to_string(),
+        );
+    }
 
-
-    async fn run_recorder(audio_chunk_processor: AudioChunkProcessor) {
+    async fn run_recorder(mut processor: AudioChunkProcessor) {
         println!("Recording task started");
 
         let mut jack_client = JackClient::new();
         let receiver_arc = jack_client.get_audio_receiver();
         jack_client.start_processing();
 
-        let mut processor = audio_chunk_processor;
+        let mut buffer = vec![];
+
+        let mut last_transcription_time = std::time::Instant::now();
 
         while IS_RECORDING.load(Ordering::SeqCst) {
             if let Ok(receiver_guard) = receiver_arc.lock() {
                 if let Ok(audio_data) = receiver_guard.recv() {
-                    processor.process_chunk(audio_data);
+                    buffer.extend(audio_data.clone());
+                    if buffer.len() >= processor.get_frame_size() {
+                        processor.process_chunk(buffer.clone());
+                        buffer.clear();
+                    }
                 } else {
                     break;
                 }
             }
 
-
-            let new_audio = processor.get_current_audio();
-            for data in new_audio.iter().cloned() {
-                AudioRecorder::send_transcription(&transcribe(data));
+            if std::time::Instant::now().duration_since(last_transcription_time)
+            > std::time::Duration::from_secs(5)
+            {
+            
+                let new_audio = processor.get_current_audio();
+                for (data, audio) in new_audio.iter() {
+                    AudioRecorder::send_transcription(&transcribe(audio.clone()), data.to_string());
+                }
+                last_transcription_time = std::time::Instant::now();
             }
 
             let energy = processor.get_most_recent_energy();
@@ -83,15 +92,13 @@ impl AudioRecorder {
 
         let runtime_guard = RUNTIME.lock().unwrap();
         if let Some(runtime) = &*runtime_guard {
-            let vad = VoiceActivityDetector::new();
+            let vad = web_rtc_vad::WebRtcVadFacade::new(48000, VadMode::Quality)?;
             let mut processor = AudioChunkProcessor::new(vad);
 
             processor.set_silence_duration_threshold(silence_threshhold);
-            processor.set_silence_threshold(duration_threshold);
 
             runtime.spawn(AudioRecorder::run_recorder(processor));
-        } 
-        else {
+        } else {
             return Err("eprintlnError: Tokio runtime not initialized!".to_string());
         }
 
@@ -108,7 +115,7 @@ impl AudioRecorder {
     }
 
     pub fn initialise(call_back: Root<JsFunction>, channel: Channel) -> Result<(), String> {
-    initialise_event_publisher(Arc::new(Mutex::new(call_back)), channel);
+        initialise_event_publisher(Arc::new(Mutex::new(call_back)), channel);
 
         let runtime = Runtime::new().unwrap();
         {
@@ -116,7 +123,6 @@ impl AudioRecorder {
             let mut runtime_guard = RUNTIME.lock().unwrap();
             *runtime_guard = Some(runtime);
         }
-
 
         let transcription_engine =
             TranscriptionEngine::new("whisper-models/ggml-tiny.en.bin").unwrap();
