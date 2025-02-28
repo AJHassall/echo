@@ -1,0 +1,3 @@
+{
+    "rust-analyzer.linkedProjects": ["./echo_module/native/Cargo.toml"]
+}
