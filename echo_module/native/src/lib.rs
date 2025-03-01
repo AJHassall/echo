@@ -1,5 +1,4 @@
 use audio_recorder::AudioRecorder;
-use futures::channel;
 use neon::prelude::*;
 
 mod audio_recorder;

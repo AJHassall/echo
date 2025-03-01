@@ -1,6 +1,5 @@
 use whisper_rs::{
     SamplingStrategy, WhisperContext, WhisperContextParameters, WhisperError,
-    WhisperProgressCallback, WhisperSysContext, WhisperSysState,
 };
 
 // Define a custom error type

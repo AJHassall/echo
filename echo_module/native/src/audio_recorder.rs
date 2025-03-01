@@ -3,7 +3,7 @@ use neon::event::Channel;
 use neon::handle::Root;
 use neon::types::JsFunction;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard, TryLockError};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::runtime::Runtime;
 use webrtc_vad::VadMode;
@@ -13,7 +13,7 @@ use crate::audio_transcription_controller::{
 };
 use crate::event_publisher::{initialise_event_publisher, EventPublisher};
 use crate::transcription_engine::TranscriptionEngine;
-use crate::{api, audio, web_rtc_vad};
+use crate::web_rtc_vad;
 use crate::{audio::AudioDataReceiver, audio_manager::AudioChunkProcessor, jack::JackClient};
 
 lazy_static! {

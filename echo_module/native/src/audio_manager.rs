@@ -22,7 +22,7 @@ pub struct AudioChunkProcessor {
 //probably makes more sense to create it in the thread
 unsafe impl Send for AudioChunkProcessor {}
 
-impl<'a> AudioChunkProcessor {
+impl AudioChunkProcessor {
     pub fn new(vad: WebRtcVadFacade) -> Self {
         AudioChunkProcessor {
             vad,
@@ -43,12 +43,8 @@ impl<'a> AudioChunkProcessor {
         {
             self.create_or_extend(&audio_chunk[..]);
             self.last_silence_time = time::Instant::now();
-        } else if time::Instant::now().duration_since(self.last_silence_time)
-            >= self.silence_duration_threshold
-        {
-            if self.output_chunks.contains_key(&self.current_chunk_uuid) {
-                self.current_chunk_uuid = Uuid::new_v4();
-            }
+        } else if time::Instant::now().duration_since(self.last_silence_time) >= self.silence_duration_threshold && self.output_chunks.contains_key(&self.current_chunk_uuid) {
+            self.current_chunk_uuid = Uuid::new_v4();
         }
     }
     pub fn create_or_extend(&mut self, audio: &[f32]) {
@@ -68,8 +64,8 @@ impl<'a> AudioChunkProcessor {
     }
 
     pub fn get_current_audio(&mut self) -> HashMap<Uuid, Vec<f32>> {
-        let out = self.output_chunks.clone();
-        out
+        
+        self.output_chunks.clone()
     }
 
     pub fn clear_current_audio(&mut self) {

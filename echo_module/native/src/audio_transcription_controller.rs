@@ -11,7 +11,6 @@ pub enum CustomError {
     Whisper(WhisperError),
     TranscriptionInProgress,
     EngineNotInitialized,
-    Other(String),
 }
 
 impl std::error::Error for CustomError {}
@@ -29,7 +28,6 @@ impl fmt::Display for CustomError {
             CustomError::Whisper(e) => write!(f, "Whisper error: {}", e),
             CustomError::TranscriptionInProgress => write!(f, "Transcription in progress"),
             CustomError::EngineNotInitialized => write!(f, "Engine not initialized"),
-            CustomError::Other(msg) => write!(f, "Other error: {}", msg),
         }
     }
 }

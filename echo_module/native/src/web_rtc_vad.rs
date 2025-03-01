@@ -43,7 +43,7 @@ impl WebRtcVadFacade {
             let scaled_sample = sample * 32767.0; // Or 32768.0 for symmetrical range
     
             // Clip/Saturate to ensure it's within i16 range
-            let clipped_sample = scaled_sample.max(-32768.0).min(32767.0);
+            let clipped_sample = scaled_sample.clamp(-32768.0,32767.0);
     
             // Cast to i16 (truncates towards zero, which is usually fine for audio)
             let i16_sample = clipped_sample as i16;
@@ -79,13 +79,13 @@ mod tests {
 
         // Simulate some speech (a simple sine wave)
         for i in 0..frame_size {
-            frame[i] = (i as f32 * 2.0 * std::f32::consts::PI * 440.0 / sample_rate as f32).sin() as f32 * 1000.0;
+            frame[i] = (i as f32 * 2.0 * std::f32::consts::PI * 440.0 / sample_rate as f32).sin() * 1000.0;
         }
 
         let result = vad_facade.is_speech(&frame).unwrap();
 
         // It is difficult to guarentee speech detection with a basic sine wave, so we test that the function executes.
-        assert!(result == true || result == false);
+        assert!(result || !result);
 
         //Test invalid frame size.
         let invalid_frame = vec![0f32; frame_size + 1];
