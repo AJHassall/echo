@@ -3,14 +3,15 @@ use neon::event::Channel;
 use neon::handle::Root;
 use neon::types::JsFunction;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard, TryLockError};
 use std::time::Duration;
 use tokio::runtime::Runtime;
-use tokio_util::bytes::buf;
 use webrtc_vad::VadMode;
-// Import Runtime
 
-use crate::event_publisher::{initialise_event_publisher, EventPublisher}; // Import the EventPublisher type.
+use crate::audio_transcription_controller::{
+    ConcurrentTranscriber, CustomError, TranscribeResponse, Transcriber,
+};
+use crate::event_publisher::{initialise_event_publisher, EventPublisher};
 use crate::transcription_engine::TranscriptionEngine;
 use crate::{api, audio, web_rtc_vad};
 use crate::{audio::AudioDataReceiver, audio_manager::AudioChunkProcessor, jack::JackClient};
@@ -18,7 +19,8 @@ use crate::{audio::AudioDataReceiver, audio_manager::AudioChunkProcessor, jack::
 lazy_static! {
     static ref IS_RECORDING: AtomicBool = AtomicBool::new(false);
     static ref RUNTIME: Mutex<Option<Runtime>> = Mutex::new(None);
-    static ref TRANSCRIPTION_ENGINE: Mutex<Option<TranscriptionEngine>> = Mutex::new(None);
+    static ref TRANSCRIPTION_ENGINE: Mutex<Option<ConcurrentTranscriber<TranscriptionEngine>>> =
+        Mutex::new(None);
 }
 
 pub struct AudioRecorder;
@@ -49,8 +51,6 @@ impl AudioRecorder {
 
         let mut buffer = vec![];
 
-        let mut last_transcription_time = std::time::Instant::now();
-
         while IS_RECORDING.load(Ordering::SeqCst) {
             if let Ok(receiver_guard) = receiver_arc.lock() {
                 if let Ok(audio_data) = receiver_guard.recv() {
@@ -64,15 +64,21 @@ impl AudioRecorder {
                 }
             }
 
-            if std::time::Instant::now().duration_since(last_transcription_time)
-            > std::time::Duration::from_secs(5)
-            {
-            
-                let new_audio = processor.get_current_audio();
-                for (data, audio) in new_audio.iter() {
-                    AudioRecorder::send_transcription(&transcribe(audio.clone()), data.to_string());
+            let new_audio = processor.get_current_audio();
+            for (uuid, audio) in new_audio.iter() {
+                if audio.is_empty() {
+                    break;
+                };
+
+                if let Ok(transcription) = try_transcribe(audio.clone()) {
+                    AudioRecorder::send_transcription(
+                        transcription.transcription,
+                        uuid.to_string(),
+                    );
+                    processor.clear_current_audio();
+                } else {
+                    println!("Transcriber is not ready");
                 }
-                last_transcription_time = std::time::Instant::now();
             }
 
             let energy = processor.get_most_recent_energy();
@@ -98,8 +104,6 @@ impl AudioRecorder {
             processor.set_silence_duration_threshold(silence_threshhold);
 
             runtime.spawn(AudioRecorder::run_recorder(processor));
-        } else {
-            return Err("eprintlnError: Tokio runtime not initialized!".to_string());
         }
 
         Ok(())
@@ -119,13 +123,13 @@ impl AudioRecorder {
 
         let runtime = Runtime::new().unwrap();
         {
-            // Scope for MutexGuard
             let mut runtime_guard = RUNTIME.lock().unwrap();
             *runtime_guard = Some(runtime);
         }
 
-        let transcription_engine =
-            TranscriptionEngine::new("whisper-models/ggml-tiny.en.bin").unwrap();
+        let transcription_engine = ConcurrentTranscriber::new(
+            TranscriptionEngine::new("../whisper-models/ggml-tiny.en.bin").unwrap(),
+        );
         {
             let mut engine_guard = TRANSCRIPTION_ENGINE.lock().unwrap();
             *engine_guard = Some(transcription_engine);
@@ -135,23 +139,13 @@ impl AudioRecorder {
     }
 }
 
-fn transcribe(data: Vec<f32>) -> String {
+fn try_transcribe(data: Vec<f32>) -> Result<TranscribeResponse, CustomError> {
     let mut engine_guard = TRANSCRIPTION_ENGINE.lock().unwrap();
     if let Some(engine) = engine_guard.as_mut() {
-        let response = api::transcribe_stream(data, engine);
-
-        match response {
-            Ok(text) => {
-                return text.transcription;
-            }
-            Err(error) => {
-                println!("transcription error: {}", error);
-            }
-        }
+        engine.transcribe(data)
     } else {
-        eprintln!("Error: Tokio runtime not initialized!");
+        Err(CustomError::EngineNotInitialized)
     }
-    "".to_owned()
 }
 
 #[cfg(test)]

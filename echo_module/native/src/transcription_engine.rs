@@ -1,13 +1,25 @@
-use whisper_rs::{SamplingStrategy, WhisperContext, WhisperContextParameters, WhisperError};
+use whisper_rs::{
+    SamplingStrategy, WhisperContext, WhisperContextParameters, WhisperError,
+    WhisperProgressCallback, WhisperSysContext, WhisperSysState,
+};
 
-pub struct TranscriptionEngine {  // Renamed for clarity
+// Define a custom error type
+#[derive(Debug)]
+pub enum CustomError {
+    Whisper(WhisperError),
+    TranscriptionInProgress,
+    EngineNotInitialized,
+    Other(String), 
+}
+
+
+pub struct TranscriptionEngine {
     state: whisper_rs::WhisperState,
-    params: whisper_rs::FullParams<'static, 'static>, // Static lifetimes are okay here
+    params: whisper_rs::FullParams<'static, 'static>,
 }
 
 impl TranscriptionEngine {
     pub fn new(model_path: &str) -> Result<Self, WhisperError> {
-
         let mut context_param = WhisperContextParameters::default();
 
         // Enable DTW token level timestamp for known model by using model preset
@@ -15,14 +27,9 @@ impl TranscriptionEngine {
             model_preset: whisper_rs::DtwModelPreset::TinyEn,
         };
 
-        let ctx = WhisperContext::new_with_params(
-            model_path,
-            context_param,
-            
-        )?;
+        let ctx = WhisperContext::new_with_params(model_path, context_param)?;
 
         let state = ctx.create_state()?;
-
 
         let mut params = whisper_rs::FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
         params.set_n_threads(4);
@@ -35,7 +42,7 @@ impl TranscriptionEngine {
         params.set_token_timestamps(true);
         params.set_initial_prompt("");
 
-        Ok(Self {state, params })
+        Ok(Self { state, params })
     }
 
     pub fn process_audio(&mut self, audio: &[f32]) -> Result<(), WhisperError> {
@@ -52,5 +59,4 @@ impl TranscriptionEngine {
         }
         Ok(segments)
     }
-
 }

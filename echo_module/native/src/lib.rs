@@ -10,6 +10,7 @@ mod api;
 mod event_publisher;
 mod web_rtc_vad;
 mod audio_manager;
+mod audio_transcription_controller;
 
 pub fn start(mut cx: FunctionContext) -> JsResult<JsUndefined> {
     let silence_threshhold = cx.argument::<JsNumber>(0)?;

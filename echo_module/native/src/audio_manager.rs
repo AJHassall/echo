@@ -36,28 +36,19 @@ impl<'a> AudioChunkProcessor {
     }
 
     pub fn process_chunk(&mut self, audio_chunk: Vec<f32>) {
-
         if self
             .vad
             .is_speech(&audio_chunk[0..1440])
-            .expect("VAD processing error"){
-                
-                println!("speech detected");
-
+            .expect("VAD processing error")
+        {
             self.create_or_extend(&audio_chunk[..]);
             self.last_silence_time = time::Instant::now();
-        } 
-        else if time::Instant::now().duration_since(self.last_silence_time)
-            >= self.silence_duration_threshold {
-
-                println!("silence detected");
-
-
+        } else if time::Instant::now().duration_since(self.last_silence_time)
+            >= self.silence_duration_threshold
+        {
             if self.output_chunks.contains_key(&self.current_chunk_uuid) {
-
-                println!("new uuid");
                 self.current_chunk_uuid = Uuid::new_v4();
-            } 
+            }
         }
     }
     pub fn create_or_extend(&mut self, audio: &[f32]) {
@@ -78,8 +69,12 @@ impl<'a> AudioChunkProcessor {
 
     pub fn get_current_audio(&mut self) -> HashMap<Uuid, Vec<f32>> {
         let out = self.output_chunks.clone();
-        self.output_chunks.retain(|&key, _| key == self.current_chunk_uuid);
         out
+    }
+
+    pub fn clear_current_audio(&mut self) {
+        self.output_chunks
+            .retain(|&key, _| key == self.current_chunk_uuid);
     }
     pub fn get_most_recent_energy(&mut self) -> f64 {
         self.most_recent_energy
