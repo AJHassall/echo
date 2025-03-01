@@ -26,7 +26,6 @@ impl AudioChunkProcessor {
     pub fn new(vad: WebRtcVadFacade) -> Self {
         AudioChunkProcessor {
             vad,
-            //current_chunk: Vec::new(),
             current_chunk_uuid: Uuid::new_v4(),
             last_silence_time: Instant::now(),
             silence_duration_threshold: Duration::from_secs(1),

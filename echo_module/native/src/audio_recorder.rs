@@ -4,7 +4,7 @@ use neon::handle::Root;
 use neon::types::JsFunction;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{self, Duration, Instant, UNIX_EPOCH};
 use tokio::runtime::Runtime;
 use webrtc_vad::VadMode;
 
@@ -51,6 +51,10 @@ impl AudioRecorder {
 
         let mut buffer = vec![];
 
+        let mut last_processed_time = Instant::now()
+            .checked_sub(Duration::from_secs(5))
+            .expect("");
+
         while IS_RECORDING.load(Ordering::SeqCst) {
             if let Ok(receiver_guard) = receiver_arc.lock() {
                 if let Ok(audio_data) = receiver_guard.recv() {
@@ -64,20 +68,23 @@ impl AudioRecorder {
                 }
             }
 
-            let new_audio = processor.get_current_audio();
-            for (uuid, audio) in new_audio.iter() {
-                if audio.is_empty() {
-                    break;
-                };
+            if Instant::now().duration_since(last_processed_time) > Duration::from_secs(1) {
+                last_processed_time = Instant::now();
+                let new_audio = processor.get_current_audio();
+                for (uuid, audio) in new_audio.iter() {
+                    if audio.is_empty() {
+                        break;
+                    };
 
-                if let Ok(transcription) = try_transcribe(audio.clone()) {
-                    AudioRecorder::send_transcription(
-                        transcription.transcription,
-                        uuid.to_string(),
-                    );
-                    processor.clear_current_audio();
-                } else {
-                    println!("Transcriber is not ready");
+                    if let Ok(transcription) = try_transcribe(audio.clone()) {
+                        AudioRecorder::send_transcription(
+                            transcription.transcription,
+                            uuid.to_string(),
+                        );
+                        processor.clear_current_audio();
+                    } else {
+                        println!("Transcriber is not ready");
+                    }
                 }
             }
 

@@ -1,4 +1,5 @@
 use jack::{AudioIn, Client, ClientOptions, PortFlags};
+use neon::types::buffer;
 use std::thread;
 use std::{
     sync::{
@@ -49,6 +50,7 @@ impl JackClient {
             }
 
             let running_clone = running.clone();
+            let mut buffer = vec![];
             let process_callback = move |_: &Client, ps: &jack::ProcessScope| -> jack::Control {
                 if !running_clone.load(Ordering::SeqCst) {
                     return jack::Control::Quit;
@@ -57,8 +59,14 @@ impl JackClient {
                 let in_a_p = in_a.as_slice(ps);
                 let audio_data: Vec<f32> = in_a_p.to_vec();
 
-                if let Err(e) = audio_tx_clone.send(audio_data) {
-                    eprintln!("Error sending audio data: {}", e);
+                buffer.extend_from_slice(in_a_p);
+
+                //1ms
+                if buffer.len() > 48000 {
+                    if let Err(e) = audio_tx_clone.send(buffer.clone()) {
+                        eprintln!("Error sending audio data: {}", e);
+                    }
+                    buffer.clear();
                 }
 
                 jack::Control::Continue
