@@ -16,7 +16,7 @@
     "assets",
     "buildjs",
     "src",
-    "native", 
+    "native/index.node", 
     "Cargo.toml"
   ],
   "devDependencies": {

@@ -1,6 +1,6 @@
 {
   "include": ["lib"],
-  "exclude": ["**/compiler_depend.js"],
+  "exclude": ["**/compiler_depend.js", "whisper-models/**"],
   "compilerOptions": {
     "rootDir": "lib",
     "allowJs": true,

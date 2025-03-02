@@ -1,202 +1,178 @@
-use neon::prelude::*;
-use serde_json::Number;
+use lazy_static::lazy_static;
+use neon::event::Channel;
+use neon::handle::Root;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Mutex;
-use std::time::Duration;
+use std::sync::{Arc, Mutex};
 use tokio::runtime::Runtime;
-// Import Runtime
+use tokio::task;
+use webrtc_vad::VadMode;
 
-use crate::{api, vad};
-use crate::transcription_engine::TranscriptionEngine;
-use crate::{
-    audio::AudioDataReceiver,
-    jack::JackClient,
-    vad::{AudioChunkProcessor, VoiceActivityDetector},
+use crate::audio_manager::AsyncAudioChunkProcessor;
+use crate::audio_transcription_controller::{
+    ConcurrentTranscriber, CustomError, TranscribeResponse, Transcriber,
 };
+use crate::event_publisher::{initialise_event_publisher, EventPublisher};
+use crate::jack::JackClient;
+use crate::transcription_engine::TranscriptionEngine;
+use crate::util::Timer;
+use crate::web_rtc_vad;
 
-static IS_RECORDING: AtomicBool = AtomicBool::new(false);
-static RUNTIME: Mutex<Option<Runtime>> = Mutex::new(None);
-static TRANSCRIPTION_ENGINE: Mutex<Option<TranscriptionEngine>> = Mutex::new(None);
-static TRANSCRIPTIONS: Mutex<Option<Vec<String>>> = Mutex::new(None);
-static MOST_RECENT_ENERGY: Mutex<f64> = Mutex::new(0.0);
+use neon::prelude::*;
+use once_cell::sync::OnceCell;
 
+lazy_static! {
+    static ref IS_RECORDING: AtomicBool = AtomicBool::new(false);
+    static ref TRANSCRIPTION_ENGINE: Mutex<Option<ConcurrentTranscriber<TranscriptionEngine>>> =
+        Mutex::new(None);
+}
+
+fn runtime() -> &'static Runtime {
+    static RUNTIME: OnceCell<Runtime> = OnceCell::new();
+
+    if let Ok(runtime) = RUNTIME.get_or_try_init(|| Runtime::new()) {
+        println!("runtime intiialised");
+
+        return runtime;
+    } else {
+        println!("error initialising runntime");
+        panic!();
+    }
+}
 
 pub struct AudioRecorder;
 
 impl AudioRecorder {
-    pub fn get_transcriptions(mut cx: FunctionContext) -> JsResult<JsArray> {
-        let transcription_guard = TRANSCRIPTIONS.lock().unwrap(); // No need for mut, just reading
-        let a;
-
-        if let Some(transcriptions_ref) = transcription_guard.as_ref() {
-            // Get a reference
-            let transcriptions = transcriptions_ref.clone(); // Clone the Vec for JS array
-            a = JsArray::new(&mut cx, transcriptions.len());
-
-            for (i, s) in transcriptions.iter().enumerate() {
-                let v = cx.string(s);
-                a.set(&mut cx, i as u32, v)?;
-            }
-        } else {
-            a = JsArray::new(&mut cx, 0);
-        }
-
-        Ok(a)
+    pub fn send_transcription<T: Into<String>>(transcription: T, event_id: String) {
+        EventPublisher::publish_if_available(
+            "transcription".to_string(),
+            transcription.into(),
+            event_id,
+        );
     }
 
-    pub fn clear_transcriptions(mut cx: FunctionContext) -> JsResult<JsUndefined> {
-        let mut transcription_guard = TRANSCRIPTIONS.lock().unwrap();
-
-        transcription_guard.take();
-
-        *transcription_guard = Some(Vec::new()); // Uncomment if you want to re-initialize
-
-        Ok(cx.undefined()) // Return undefined, as clearing doesn't return data
+    pub fn send_most_recent_energy<T: Into<String>>(energy: T) {
+        EventPublisher::publish_if_available(
+            "new_energy".to_string(),
+            energy.into(),
+            "todo".to_string(),
+        );
     }
 
-    fn push_transcription(transcription: &str) {
-        let mut transcription_guard = TRANSCRIPTIONS.lock().unwrap();
-
-        let transcriptions = transcription_guard.get_or_insert_with(Vec::new);
-        transcriptions.push(String::from(transcription));
-    }
-
-    pub fn get_most_recent_energy(mut cx: FunctionContext) -> JsResult<JsNumber> {
-        let transcription_guard = MOST_RECENT_ENERGY.lock().unwrap(); // No need for mut, just reading
-        let transcriptions = transcription_guard;
-
-        Ok(cx.number(*transcriptions))
-    }
-
-    fn set_energy(energy: f64) {
-        let mut transcription_guard = MOST_RECENT_ENERGY.lock().unwrap();
-
-        let mut transcriptions = transcription_guard;
-        *transcriptions = energy;
-    }
-
-    async fn run_recorder(audio_chunk_processor: AudioChunkProcessor) {
+    async fn run_recorder() {
         println!("Recording task started");
+
+        let vad = web_rtc_vad::WebRtcVadFacade::new(48000, VadMode::Quality).expect("msg");
+        let mut processor = AsyncAudioChunkProcessor::new(vad);
+
+        processor.set_silence_duration_threshold(2.0);
 
         let mut jack_client = JackClient::new();
         let receiver_arc = jack_client.get_audio_receiver();
         jack_client.start_processing();
 
-        let mut processor = audio_chunk_processor;
+        let (transcribe_tx, mut transcribe_rx) =
+            tokio::sync::mpsc::channel::<(uuid::Uuid, Vec<f32>)>(32);
 
-        while IS_RECORDING.load(Ordering::SeqCst) {
-            if let Ok(receiver_guard) = receiver_arc.lock() {
-                if let Ok(audio_data) = receiver_guard.recv() {
-                    processor.process_chunk(audio_data);
-                    
-                } else {
-                    break;
+        // Mutex to control access to transcribe
+        let transcribe_running = std::sync::Arc::new(tokio::sync::Mutex::new(false));
+        let transcribe_running_clone = std::sync::Arc::clone(&transcribe_running);
+
+        task::spawn(async move {
+            while let Some((uuid, audio)) = transcribe_rx.recv().await {
+                let t = Timer::new("inside transcription loop".to_string());
+                {
+                    let mut running = transcribe_running_clone.lock().await;
+                    *running = true;
+                }
+
+                if let Ok(response) = try_transcribe(audio).await {
+                    Self::send_transcription(response.transcription, uuid.to_string())
+                }
+                {
+                    let mut running = transcribe_running_clone.lock().await;
+                    *running = false;
                 }
             }
+        });
 
-            let new_audio = processor.get_current_audio();
-            for data in new_audio.iter().cloned() {
-                AudioRecorder::push_transcription(&transcribe(data));
+        let mut buffer: Vec<f32> = vec![];
+        while IS_RECORDING.load(Ordering::SeqCst) {
+            let mut receiver_guard = receiver_arc.lock().await;
+            let audio_data = &*receiver_guard.recv().await.expect("msg");
+
+            buffer.extend_from_slice(&audio_data);
+            if buffer.len() >= processor.get_frame_size().await {
+                processor.process_chunk(std::mem::take(&mut buffer)).await;
             }
 
-            let energy = processor.get_most_recent_energy();
-            AudioRecorder::set_energy(energy);
-            
+            {
+                let running = transcribe_running.lock().await;
 
-            tokio::time::sleep(Duration::from_millis(10)).await;
+                if !*running {
+                    let to_process = processor.get_current_audio().await;
+
+                    for (uuid, audio) in to_process {
+                        transcribe_tx
+                            .send((uuid, audio))
+                            .await
+                            .expect("faile to send");
+                    }
+
+                    processor.clear_current_audio().await;
+                }
+            }
         }
 
         jack_client.stop_processing();
     }
 
-    pub fn start(mut cx: FunctionContext) -> JsResult<JsUndefined> {
-
-        let silence_threshhold = cx.argument::<JsNumber>(0)?;
-        let duration_threshold = cx.argument::<JsNumber>(1)?;
-
-        let silence_threshhold = silence_threshhold.value(&mut cx);
-        let duration_threshold = duration_threshold.value(&mut cx);
-
-
+    pub fn start(duration_threshold: f64) -> Result<(), String> {
         if IS_RECORDING.load(Ordering::SeqCst) {
-            return Ok(cx.undefined()); // Or return an error if you prefer
+            return Err("recorder already running".to_string());
         }
 
         IS_RECORDING.store(true, Ordering::SeqCst);
 
-        let runtime_guard = RUNTIME.lock().unwrap();
-        if let Some(runtime) = &*runtime_guard {
-            
-            let vad = VoiceActivityDetector::new();
-            let mut processor = AudioChunkProcessor::new(vad);
+        let rt = runtime();
 
-            processor.set_silence_duration_threshold(silence_threshhold);
-            processor.set_silence_threshold(duration_threshold);
+        rt.spawn(async move { AudioRecorder::run_recorder().await }); // Corrected line
 
-            runtime.spawn(AudioRecorder::run_recorder(processor)); // Use runtime.spawn!
-        } else {
-            eprintln!("Error: Tokio runtime not initialized!");
-        }
-
-        Ok(cx.undefined())
+        Ok(())
     }
 
-    pub fn stop(mut cx: FunctionContext) -> JsResult<JsUndefined> {
+    pub fn stop() -> Result<(), String> {
         if !IS_RECORDING.load(Ordering::SeqCst) {
-            println!("Recording is already stopped.");
-            return Ok(cx.undefined()); // Or return an error
+            return Err("Recording is already stopped.".to_string());
         }
 
         IS_RECORDING.store(false, Ordering::SeqCst);
-        println!("Stop recording requested");
-
-        Ok(cx.undefined())
+        Ok(())
     }
 
-    pub fn initialise(mut cx: FunctionContext) -> JsResult<JsObject> {
-        let runtime = Runtime::new().unwrap();
-        {
-            // Scope for MutexGuard
-            let mut runtime_guard = RUNTIME.lock().unwrap();
-            *runtime_guard = Some(runtime);
-        }
+    pub fn initialise(call_back: Root<JsFunction>, channel: Channel) -> Result<(), String> {
+        initialise_event_publisher(Arc::new(Mutex::new(call_back)), channel);
 
-        let transcriptions = vec![];
-        {
-            let mut runtime_guard = TRANSCRIPTIONS.lock().unwrap();
-            *runtime_guard = Some(transcriptions);
-        }
-
-        let transcription_engine =
-            TranscriptionEngine::new("whisper-models/ggml-tiny.en.bin").unwrap(); // Handle error properly in production
+        let transcription_engine = ConcurrentTranscriber::new(
+            TranscriptionEngine::new("../whisper-models/ggml-tiny.en.bin").unwrap(),
+        );
         {
             let mut engine_guard = TRANSCRIPTION_ENGINE.lock().unwrap();
             *engine_guard = Some(transcription_engine);
         }
 
-        let obj = JsObject::new(&mut cx);
+        println!("init success");
 
-        Ok(obj)
+        Ok(())
     }
 }
 
-fn transcribe(data: Vec<f32>) -> String {
+async fn try_transcribe(data: Vec<f32>) -> Result<TranscribeResponse, CustomError> {
     let mut engine_guard = TRANSCRIPTION_ENGINE.lock().unwrap();
     if let Some(engine) = engine_guard.as_mut() {
-        let response = api::transcribe_stream(data, engine);
-
-        match response {
-            Ok(text) => {
-                return text.transcription;
-            }
-            Err(error) => {
-                println!("transcription error: {}", error);
-            }
-        }
+        engine.transcribe(data)
     } else {
-        eprintln!("Error: Tokio runtime not initialized!");
+        Err(CustomError::EngineNotInitialized)
     }
-    "".to_owned()
 }
 
 #[cfg(test)]
