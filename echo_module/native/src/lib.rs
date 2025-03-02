@@ -3,13 +3,13 @@ use neon::prelude::*;
 
 mod audio_recorder;
 mod jack;
-mod audio;
 mod transcription_engine;
 mod api;
 mod event_publisher;
 mod web_rtc_vad;
 mod audio_manager;
 mod audio_transcription_controller;
+mod util;
 
 pub fn start(mut cx: FunctionContext) -> JsResult<JsUndefined> {
     let silence_threshhold = cx.argument::<JsNumber>(0)?;
@@ -18,7 +18,7 @@ pub fn start(mut cx: FunctionContext) -> JsResult<JsUndefined> {
     let silence_threshhold = silence_threshhold.value(&mut cx);
     let duration_threshold = duration_threshold.value(&mut cx);
 
-    AudioRecorder::start(silence_threshhold, duration_threshold);
+    AudioRecorder::start(duration_threshold);
 
     Ok(cx.undefined())    
 }

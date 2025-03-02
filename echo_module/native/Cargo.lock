@@ -187,6 +187,7 @@ dependencies = [
  "jack",
  "lazy_static",
  "neon",
+ "once_cell",
  "pin-project",
  "reqwest",
  "rubato",

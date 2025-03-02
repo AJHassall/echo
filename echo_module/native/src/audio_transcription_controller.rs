@@ -55,35 +55,19 @@ impl Transcriber for TranscriptionEngine {
 
 pub struct ConcurrentTranscriber<T: Transcriber> {
     inner: T,
-    is_transcribing: Arc<Mutex<bool>>,
 }
 
 impl<T: Transcriber> ConcurrentTranscriber<T> {
     pub fn new(inner: T) -> Self {
         ConcurrentTranscriber {
             inner,
-            is_transcribing: Arc::new(Mutex::new(false)),
         }
     }
 }
 
 impl<T: Transcriber> Transcriber for ConcurrentTranscriber<T> {
     fn transcribe(&mut self, audio: Vec<f32>) -> Result<TranscribeResponse, CustomError> {
-        {
-            let mut is_transcribing = self.is_transcribing.lock().unwrap();
-            if *is_transcribing {
-                println!("is transcirbing");
-                return Err(CustomError::TranscriptionInProgress);
-            }
-            *is_transcribing = true;
-        }
-
         let result = self.inner.transcribe(audio);
-
-        {
-            let mut is_transcribing = self.is_transcribing.lock().unwrap();
-            *is_transcribing = false;
-        }
 
         result
     }

@@ -9,7 +9,6 @@
 # MSVC Windows builds of rustc generate these, which store debugging information
 *.pdb
 
-echo_module/yarn.lock
 echo_module/buildjs/index-default.d.ts
 echo_module/buildjs/index-default.js
 echo_module/buildjs/index-default.js.map

@@ -4,6 +4,8 @@ use std::{
 };
 
 use uuid::Uuid;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 use crate::web_rtc_vad::WebRtcVadFacade;
 
@@ -49,7 +51,7 @@ impl AudioChunkProcessor {
     pub fn create_or_extend(&mut self, audio: &[f32]) {
         match self.output_chunks.get_mut(&self.current_chunk_uuid) {
             Some(vec) => {
-                vec.extend_from_slice(audio); // Use extend_from_slice for efficiency with slices
+                vec.extend_from_slice(audio);
             }
             None => {
                 self.output_chunks
@@ -63,7 +65,6 @@ impl AudioChunkProcessor {
     }
 
     pub fn get_current_audio(&mut self) -> HashMap<Uuid, Vec<f32>> {
-        
         self.output_chunks.clone()
     }
 

@@ -1,38 +1,33 @@
 use jack::{AudioIn, Client, ClientOptions, PortFlags};
-use neon::types::buffer;
-use std::thread;
-use std::{
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        mpsc, Arc, Mutex,
-    },
-    time::Duration,
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
 };
-
-use crate::audio::AudioDataReceiver;
+use tokio::sync::{mpsc, Mutex};
+use tokio::task;
 
 pub struct JackClient {
     running: Arc<AtomicBool>,
     audio_tx: mpsc::Sender<Vec<f32>>,
-    audio_rx: Arc<Mutex<mpsc::Receiver<Vec<f32>>>>, 
-    thread_handle: Option<thread::JoinHandle<()>>,
+    audio_rx: Arc<Mutex<mpsc::Receiver<Vec<f32>>>>,
 }
 
 impl JackClient {
     pub fn new() -> Self {
-        let (audio_tx, audio_rx) = mpsc::channel();
+        let (audio_tx, audio_rx) = mpsc::channel(32); // Use tokio channel
         JackClient {
             running: Arc::new(AtomicBool::new(false)),
             audio_tx,
-            audio_rx: Arc::new(Mutex::new(audio_rx)), // Initialize Arc<Mutex<>>,
-            thread_handle: None, // Initialize to None
+            audio_rx: Arc::new(Mutex::new(audio_rx)),
         }
     }
-    pub fn start_processing(&mut self) { // Renamed to start_processing
+
+    pub fn start_processing(&mut self) {
         let running = self.running.clone();
         let audio_tx_clone = self.audio_tx.clone();
+        let running_clone = self.running.clone();
 
-        let handle = thread::spawn(move || {
+        task::spawn(async move {
             running.store(true, Ordering::SeqCst);
             jack::set_logger(jack::LoggerType::None);
 
@@ -41,15 +36,12 @@ impl JackClient {
 
             let connected_ports = client.ports(None, None, PortFlags::empty());
 
-            std::thread::sleep(Duration::from_secs(1));
-
             for port in connected_ports {
                 if let Err(e) = client.connect_ports_by_name(&port, &in_a.name().unwrap()) {
                     eprintln!("Error connecting ports: {}", e);
                 }
             }
 
-            let running_clone = running.clone();
             let mut buffer = vec![];
             let process_callback = move |_: &Client, ps: &jack::ProcessScope| -> jack::Control {
                 if !running_clone.load(Ordering::SeqCst) {
@@ -57,17 +49,15 @@ impl JackClient {
                 }
 
                 let in_a_p = in_a.as_slice(ps);
-                let audio_data: Vec<f32> = in_a_p.to_vec();
 
                 buffer.extend_from_slice(in_a_p);
 
-                //1ms
-                if buffer.len() > 48000 {
-                    if let Err(e) = audio_tx_clone.send(buffer.clone()) {
+                //1s
+              //  if buffer.len() > 48000 {
+                    if let Err(e) = audio_tx_clone.blocking_send(std::mem::take(&mut buffer)) {
                         eprintln!("Error sending audio data: {}", e);
                     }
-                    buffer.clear();
-                }
+               // }
 
                 jack::Control::Continue
             };
@@ -76,21 +66,23 @@ impl JackClient {
             let _active_client = client.activate_async(Notifications, process).unwrap();
 
             while running.load(Ordering::SeqCst) {
-                std::thread::sleep(std::time::Duration::from_millis(10));
+                tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
             }
+
+            println!("Jack Client Thread Finished");
         });
-
-        self.thread_handle = Some(handle); // Store the thread handle
     }
 
-    pub fn stop_processing(&mut self) { 
+    pub fn stop_processing(&mut self) {
         self.running.store(false, Ordering::SeqCst);
-        if let Some(handle) = self.thread_handle.take() { 
-            handle.join().unwrap();
-        }
     }
-    
+    pub fn get_audio_receiver(&self) -> Arc<Mutex<mpsc::Receiver<Vec<f32>>>> {
+        self.audio_rx.clone()
+    }
+}
 
+pub trait AudioDataReceiver {
+    fn get_audio_receiver(&self) -> Arc<Mutex<mpsc::Receiver<Vec<f32>>>>;
 }
 
 impl AudioDataReceiver for JackClient {
@@ -106,7 +98,6 @@ impl jack::NotificationHandler for Notifications {
         println!("JACK: thread init");
     }
 
-    /// Not much we can do here, see https://man7.org/linux/man-pages/man7/signal-safety.7.html.
     unsafe fn shutdown(&mut self, _: jack::ClientStatus, _: &str) {}
 
     fn freewheel(&mut self, _: &jack::Client, is_enabled: bool) {

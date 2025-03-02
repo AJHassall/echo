@@ -2,6 +2,8 @@ use whisper_rs::{
     SamplingStrategy, WhisperContext, WhisperContextParameters, WhisperError,
 };
 
+use crate::util::Timer;
+
 // Define a custom error type
 #[derive(Debug)]
 pub enum CustomError {
@@ -45,6 +47,7 @@ impl TranscriptionEngine {
     }
 
     pub fn process_audio(&mut self, audio: &[f32]) -> Result<(), WhisperError> {
+        let _t = Timer::new("run model".to_string());
         self.state.full(self.params.clone(), audio)?;
         Ok(())
     }
