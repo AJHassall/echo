@@ -36,11 +36,11 @@ stopBtn.onclick = e => {
 };
 
 
-//silence_threshold: number, duration_threshhold: number
+//silence_threshold: number, duration_threshold: number
 var silence_threshold = 1
-var duration_threshhold = 25;
+var duration_threshold = 25;
 async function startRecording() {
-  mediaRecorder.start(silence_threshold, duration_threshhold);
+  mediaRecorder.start(silence_threshold, duration_threshold);
 }
 
 
@@ -116,7 +116,7 @@ function sliderValueChanged(sliderElement) {
   }
 
   else {
-    duration_threshhold = value;
+    duration_threshold = value;
   }
 
 }

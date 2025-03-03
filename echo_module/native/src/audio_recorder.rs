@@ -29,10 +29,10 @@ lazy_static! {
 fn runtime() -> &'static Runtime {
     static RUNTIME: OnceCell<Runtime> = OnceCell::new();
 
-    if let Ok(runtime) = RUNTIME.get_or_try_init(|| Runtime::new()) {
+    if let Ok(runtime) = RUNTIME.get_or_try_init(Runtime::new) {
         println!("runtime intiialised");
 
-        return runtime;
+        runtime
     } else {
         println!("error initialising runntime");
         panic!();
@@ -50,21 +50,13 @@ impl AudioRecorder {
         );
     }
 
-    pub fn send_most_recent_energy<T: Into<String>>(energy: T) {
-        EventPublisher::publish_if_available(
-            "new_energy".to_string(),
-            energy.into(),
-            "todo".to_string(),
-        );
-    }
-
     async fn run_recorder() {
         println!("Recording task started");
 
         let vad = web_rtc_vad::WebRtcVadFacade::new(48000, VadMode::Quality).expect("msg");
-        let mut processor = AsyncAudioChunkProcessor::new(vad);
+        let processor = AsyncAudioChunkProcessor::new(vad);
 
-        processor.set_silence_duration_threshold(2.0);
+        processor.set_silence_duration_threshold(2.0).await;
 
         let mut jack_client = JackClient::new();
         let receiver_arc = jack_client.get_audio_receiver();
@@ -100,7 +92,7 @@ impl AudioRecorder {
             let mut receiver_guard = receiver_arc.lock().await;
             let audio_data = &*receiver_guard.recv().await.expect("msg");
 
-            buffer.extend_from_slice(&audio_data);
+            buffer.extend_from_slice(audio_data);
             if buffer.len() >= processor.get_frame_size().await {
                 processor.process_chunk(std::mem::take(&mut buffer)).await;
             }

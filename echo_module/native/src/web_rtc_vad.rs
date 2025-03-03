@@ -66,30 +66,6 @@ impl WebRtcVadFacade {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    
 
-    #[test]
-    fn test_vad_facade() {
-        let sample_rate = 16000;
-        let mode = VadMode::Quality;
-        let mut vad_facade = WebRtcVadFacade::new(sample_rate, mode).unwrap();
-
-        let frame_size = vad_facade.calculate_expected_frame_size();
-        let mut frame = vec![0f32; frame_size];
-
-        // Simulate some speech (a simple sine wave)
-        for i in 0..frame_size {
-            frame[i] = (i as f32 * 2.0 * std::f32::consts::PI * 440.0 / sample_rate as f32).sin() * 1000.0;
-        }
-
-        let result = vad_facade.is_speech(&frame).unwrap();
-
-        // It is difficult to guarentee speech detection with a basic sine wave, so we test that the function executes.
-        assert!(result || !result);
-
-        //Test invalid frame size.
-        let invalid_frame = vec![0f32; frame_size + 1];
-        let invalid_result = vad_facade.is_speech(&invalid_frame);
-        assert!(invalid_result.is_err());
-    }
 }

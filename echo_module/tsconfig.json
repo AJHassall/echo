@@ -1,5 +1,5 @@
 {
-  "include": ["install,"],
+  "include": ["lib"],
   "exclude": ["**/compiler_depend.js", "whisper-models/**"],
   "compilerOptions": {
     "rootDir": "lib",

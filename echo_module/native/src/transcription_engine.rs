@@ -6,7 +6,7 @@ use crate::util::Timer;
 
 // Define a custom error type
 #[derive(Debug)]
-pub enum CustomError {
+pub enum TranscriptionError {
     Whisper(WhisperError),
     TranscriptionInProgress,
     EngineNotInitialized,
