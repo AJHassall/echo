@@ -15,6 +15,7 @@ pub struct AudioChunkProcessor {
     last_silence_time: Instant,
     silence_duration_threshold: Duration,
     most_recent_energy: f64,
+    has_new_audio: bool,
 }
 
 //TODO see if i can remove this
@@ -29,6 +30,7 @@ impl AudioChunkProcessor {
             silence_duration_threshold: Duration::from_secs(1),
             most_recent_energy: 0.0,
             output_chunks: HashMap::new(),
+            has_new_audio: false,
         }
     }
 
@@ -40,7 +42,10 @@ impl AudioChunkProcessor {
         {
             self.create_or_extend(&audio_chunk[..]);
             self.last_silence_time = time::Instant::now();
-        } else if time::Instant::now().duration_since(self.last_silence_time) >= self.silence_duration_threshold && self.output_chunks.contains_key(&self.current_chunk_uuid) {
+        } else if time::Instant::now().duration_since(self.last_silence_time)
+            >= self.silence_duration_threshold
+            && self.output_chunks.contains_key(&self.current_chunk_uuid)
+        {
             self.current_chunk_uuid = Uuid::new_v4();
         }
     }
@@ -54,6 +59,7 @@ impl AudioChunkProcessor {
                     .insert(self.current_chunk_uuid, audio.to_vec());
             }
         }
+        self.has_new_audio = true;
     }
 
     pub fn set_silence_duration_threshold(&mut self, new_threshold: f64) {
@@ -61,7 +67,12 @@ impl AudioChunkProcessor {
     }
 
     pub fn get_current_audio(&mut self) -> HashMap<Uuid, Vec<f32>> {
+        self.has_new_audio = false;
         self.output_chunks.clone()
+    }
+
+    pub fn has_new_audio(&self) -> bool {
+        self.has_new_audio
     }
 
     pub fn clear_current_audio(&mut self) {

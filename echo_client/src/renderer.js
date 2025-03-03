@@ -1,7 +1,7 @@
 import './index.css';
 
 import { ipcRenderer } from 'electron';
-import mediaRecorder from 'echo_transcriber'
+import mediaRecorder from 'echo_module'
 
 mediaRecorder.initialise(function (e) {
   requestAnimationFrame(() => {

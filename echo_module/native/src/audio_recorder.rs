@@ -34,7 +34,7 @@ fn runtime() -> &'static Runtime {
 
         runtime
     } else {
-        println!("error initialising runntime");
+        println!("error initialising runtime");
         panic!();
     }
 }
@@ -65,7 +65,6 @@ impl AudioRecorder {
         let (transcribe_tx, mut transcribe_rx) =
             tokio::sync::mpsc::channel::<(uuid::Uuid, Vec<f32>)>(32);
 
-        // Mutex to control access to transcribe
         let transcribe_running = std::sync::Arc::new(tokio::sync::Mutex::new(false));
         let transcribe_running_clone = std::sync::Arc::clone(&transcribe_running);
 
@@ -100,14 +99,14 @@ impl AudioRecorder {
             {
                 let running = transcribe_running.lock().await;
 
-                if !*running {
+                if !*running && processor.has_new_audio().await {
                     let to_process = processor.get_current_audio().await;
 
                     for (uuid, audio) in to_process {
                         transcribe_tx
                             .send((uuid, audio))
                             .await
-                            .expect("faile to send");
+                            .expect("failed to send");
                     }
 
                     processor.clear_current_audio().await;
@@ -127,8 +126,7 @@ impl AudioRecorder {
 
         let rt = runtime();
 
-        rt.spawn(async move { AudioRecorder::run_recorder().await }); // Corrected line
-
+        rt.spawn(async move { AudioRecorder::run_recorder().await });
         Ok(())
     }
 

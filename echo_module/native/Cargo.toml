@@ -1,5 +1,5 @@
 [package]
-name = "echo_transcriber"
+name = "echo_module"
 version = "0.1.0"
 description = "wrapper for jack"
 license = "ISC"

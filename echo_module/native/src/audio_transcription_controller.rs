@@ -36,7 +36,6 @@ pub struct TranscribeResponse {
     pub transcription: String,
 }
 
-// 1. Transcriber Trait
 pub trait Transcriber {
     fn transcribe(&mut self, audio: Vec<f32>) -> Result<TranscribeResponse, CustomError>;
 }

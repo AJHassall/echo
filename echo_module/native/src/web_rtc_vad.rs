@@ -57,7 +57,6 @@ impl WebRtcVadFacade {
         (48000.0 * 0.03) as usize // 30ms frame.
     }
 
-    ///Sets the vad mode.
     pub fn set_mode(&mut self, mode: VadMode) {
         self.vad.set_mode(mode);
     }

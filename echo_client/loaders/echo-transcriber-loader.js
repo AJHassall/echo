@@ -8,7 +8,7 @@ module.exports = function (source) {
     __dirname,
     '..',
     'node_modules',
-    'echo_transcriber',
+    'echo_module',
     'native', // Ensure this matches your structure
     'index.node'
   );

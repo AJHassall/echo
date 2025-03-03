@@ -2,7 +2,7 @@ module.exports = [
   // Add support for native node modules
 
   {
-    test: /echo_transcriber[/\\]native[/\\].+\.(m?js|node)$/, // Adjust test as needed
+    test: /echo_module[/\\]native[/\\].+\.(m?js|node)$/, // Adjust test as needed
     use: './loaders/echo-transcriber-loader.js',
   },
   {

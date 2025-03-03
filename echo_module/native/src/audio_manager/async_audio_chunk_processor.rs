@@ -1,8 +1,6 @@
-use std::
-    collections::HashMap
-;
-use uuid::Uuid;
+use std::collections::HashMap;
 use tokio::sync::Mutex;
+use uuid::Uuid;
 
 use crate::{audio_manager::AudioChunkProcessor, web_rtc_vad::WebRtcVadFacade};
 
@@ -37,9 +35,13 @@ impl AsyncAudioChunkProcessor {
         processor.clear_current_audio();
     }
 
-
     pub async fn get_frame_size(&self) -> usize {
         let mut processor = self.processor.lock().await;
         processor.get_frame_size()
+    }
+
+    pub async fn has_new_audio(&self) -> bool {
+        let processor = self.processor.lock().await;
+        processor.has_new_audio()
     }
 }
