@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "wrapper for jack",
   "main": "buildjs/index.js",
-    "scripts": {
+  "scripts": {
     "build:addon": "cd native && cargo build --release --message-format=json > cargo.log && npx neon dist < cargo.log",
     "build": "yarn build:addon && node install/cleanbuild.js && tsc",
     "prepack": "yarn build && yarn test",
@@ -16,7 +16,7 @@
     "assets",
     "buildjs",
     "src",
-    "native/index.node", 
+    "native/index.node",
     "Cargo.toml"
   ],
   "devDependencies": {
@@ -34,5 +34,5 @@
     "rust",
     "node"
   ],
-  "optionalDependencies": {}
+  "optionalDependencies": {},
 }
