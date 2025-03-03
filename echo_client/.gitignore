@@ -85,11 +85,8 @@ typings/
 # Webpack
 .webpack/
 
+# Vite
+.vite/
+
 # Electron-Forge
 out/
-
-
-node_modules/
-.webpack/
-.electron-forge/
-*.log

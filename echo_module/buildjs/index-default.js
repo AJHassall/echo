@@ -6,8 +6,8 @@ exports.stop = stop;
 exports.initialise = initialise;
 // The Rust addon.
 const addon = require('../native/index.node');
-function start(silence_threshold, duration_threshhold) {
-    const message = addon.start(silence_threshold, duration_threshhold);
+function start(silence_threshold, duration_threshold) {
+    const message = addon.start(silence_threshold, duration_threshold);
 }
 function stop() {
     addon.stop();

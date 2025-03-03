@@ -12,7 +12,7 @@ export function stop(): undefined {
   addon.stop();
 }
 
-export function initialise(callback: () => object): undefined {
+export function initialise(callback: (eventData: any) => void): undefined {
   addon.initialise(callback);
 }
 

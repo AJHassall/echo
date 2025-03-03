@@ -5,20 +5,3 @@ body {
   max-width: 38rem;
   padding: 2rem;
 }
-
-#transcriptionList {
-  border: 1px solid #ccc;
-  padding: 10px;
-  margin: 20px;
-  width: 400px;
-  min-height: 100px;
-  font-family: sans-serif;
-}
-.transcriptionItem {
-  border-bottom: 1px solid #eee;
-  padding: 5px 0;
-  white-space: pre-wrap; /* Preserve line breaks */
-}
-.transcriptionItem:last-child {
-  border-bottom: none; /* Remove border from the last item */
-}
