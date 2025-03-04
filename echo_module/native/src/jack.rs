@@ -1,4 +1,6 @@
-use jack::{AudioIn, Client, ClientOptions, PortFlags};
+use jack::{
+    contrib::ClosureProcessHandler, AsyncClient, AudioIn, Client, ClientOptions, Control, Error, Port, PortFlags, ProcessScope
+};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
@@ -6,10 +8,17 @@ use std::sync::{
 use tokio::sync::{mpsc, Mutex};
 use tokio::task;
 
+type MyProcessCallback = Box<dyn FnMut(&Client, &ProcessScope) -> Control + Send + Sync + 'static>; // Box the trait object
+
+// Define a type alias for your specific AsyncClient type, using the boxed callback type
+type MyAsyncClient = AsyncClient<Notifications, ClosureProcessHandler<(), MyProcessCallback>>;
+
 pub struct JackClient {
     running: Arc<AtomicBool>,
     audio_tx: mpsc::Sender<Vec<f32>>,
     audio_rx: Arc<Mutex<mpsc::Receiver<Vec<f32>>>>,
+    active_client: Arc<Mutex<Option<MyAsyncClient>>>, // Store AsyncClient Option
+    input_port: Arc<Mutex<Option<Port<AudioIn>>>>, // Store input port
 }
 
 impl JackClient {
@@ -19,13 +28,31 @@ impl JackClient {
             running: Arc::new(AtomicBool::new(false)),
             audio_tx,
             audio_rx: Arc::new(Mutex::new(audio_rx)),
+            active_client: Arc::new(Mutex::new(None)), // Initialize active_client as None
+            input_port: Arc::new(Mutex::new(None)),     //
         }
+    }
+
+    async fn setup_ports(&self, client: &Client) -> Result<(), Error> {
+        let in_a = client.register_port("input", AudioIn::default())?;
+        let connected_ports = client.ports(None, None, PortFlags::empty());
+
+        for port in connected_ports {
+            if let Err(e) = client.connect_ports_by_name(&port, &in_a.name().unwrap()) {
+                eprintln!("Error connecting ports: {}", e);
+            }
+        }
+
+        let mut input_port_guard = self.input_port.lock().await;
+        *input_port_guard = Some(in_a); // Store the registered input port
+        Ok(())
     }
 
     pub fn start_processing(&mut self) {
         let running = self.running.clone();
         let audio_tx_clone = self.audio_tx.clone();
         let running_clone = self.running.clone();
+        let active_client_clone = self.active_client.clone();
 
         task::spawn(async move {
             running.store(true, Ordering::SeqCst);
@@ -53,17 +80,28 @@ impl JackClient {
                 buffer.extend_from_slice(in_a_p);
 
                 //1s
-              //  if buffer.len() > 48000 {
-                    if let Err(e) = audio_tx_clone.blocking_send(std::mem::take(&mut buffer)) {
-                        eprintln!("Error sending audio data: {}", e);
-                    }
-               // }
+                //  if buffer.len() > 48000 {
+                if let Err(e) = audio_tx_clone.blocking_send(std::mem::take(&mut buffer)) {
+                    eprintln!("Error sending audio data: {}", e);
+                }
+                // }
 
                 jack::Control::Continue
             };
 
-            let process = jack::contrib::ClosureProcessHandler::new(process_callback);
-            let _active_client = client.activate_async(Notifications, process).unwrap();
+            let process: ClosureProcessHandler<(), MyProcessCallback> = ClosureProcessHandler::new(Box::new(process_callback));
+            match client.activate_async(Notifications, process) {
+                Ok(active_client) => {
+                    println!("Jack Client Activated Async");
+                    let mut active_client_guard = active_client_clone.lock().await;
+                    let option_ref = &mut *active_client_guard;
+                    *option_ref = Some(active_client);
+                }
+                Err(e) => {
+                    eprintln!("Error activating client async: {}", e);
+                    running.store(false, Ordering::SeqCst);
+                }
+            }
 
             while running.load(Ordering::SeqCst) {
                 tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
@@ -78,6 +116,11 @@ impl JackClient {
     }
     pub fn get_audio_receiver(&self) -> Arc<Mutex<mpsc::Receiver<Vec<f32>>>> {
         self.audio_rx.clone()
+    }
+
+    pub async fn get_all_ports(&self) -> Vec<String> {
+        let (client, _status) = Client::new("port-inspector", ClientOptions::default()).unwrap(); // Temporary client
+        client.ports(None, None, PortFlags::empty())
     }
 }
 
