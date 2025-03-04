@@ -20,3 +20,4 @@ echo_module/buildjs/index-default.d.ts
 echo_module/buildjs/index-default.js
 echo_module/buildjs/index-default.js.map
 echo_module/buildjs/index-default.d.ts
+module_src/

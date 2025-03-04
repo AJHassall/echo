@@ -2,7 +2,7 @@
 
 // The Rust addon.
 
-const addon = require('../native/index.node');
+const addon = require("../native/index.node");
 
 export function start(silence_threshold: number, duration_threshold: number): undefined {
   const message =addon.start(silence_threshold, duration_threshold);

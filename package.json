@@ -6,14 +6,16 @@
     "echo_module"
   ],
   "scripts": {
-    "build:module": "yarn workspace echo_module build",
-    "build:client": "yarn workspace echo_client build",
+    "build:module": "yarn workspace @mono-repo/echo_module build",
+    "build:client": "yarn workspace @mono-repo/echo_client start",
     "build": "yarn build:module && yarn build:client",
-    "start": "yarn workspace echo_client start",
-    "package": "yarn workspace echo_client package",
-    "make": "yarn workspace echo_client make",
-    "test:module": "yarn workspace echo_module test"
+    "start": "yarn workspace @mono-repo/echo_client start",
+    "package": "yarn workspace @mono-repo/echo_client package",
+    "make": "yarn workspace @mono-repo/echo_client make",
+    "test:module": "yarn workspace @mono-repo/echo_module test"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "@electron/rebuild": "^3.7.1"
+  },
   "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
 }

@@ -1,30 +1,23 @@
 {
-  "name": "echo_module",
+  "name": "@mono-repo/echo_module",
   "version": "1.0.0",
   "description": "wrapper for jack",
   "main": "buildjs/index.js",
   "scripts": {
-    "build:addon": "cd native && cargo build --release --message-format=json > cargo.log && npx neon dist < cargo.log",
-    "build": "yarn build:addon && node install/cleanbuild.js && tsc",
+    "build:addon": "cd native && cargo build --release --message-format=json > cargo.log && cp -r ../native ../../module_src && cd ../../module_src && npx neon build < cargo.log ",
+    "build": "yarn build:addon && pwd && node install/cleanbuild.js && tsc",
     "prepack": "yarn build && yarn test",
     "test": "node test/index.test.js",
     "clean": "cargo clean && rm -rf buildjs native/index.node"
   },
   "author": "",
   "license": "ISC",
-  "files": [
-    "assets",
-    "buildjs",
-    "src",
-    "native/index.node",
-    "Cargo.toml"
-  ],
   "devDependencies": {
-    "neon-cli": "^0.10.1",
     "@neon-rs/cli": "^0.1.82",
     "@tsconfig/node20": "^20.1.4",
     "@types/node": "^20.11.16",
-    "typescript": "^5.3.3"
+    "neon-cli": "^0.10.1",
+    "typescript": "^5.8.2"
   },
   "dependencies": {
     "@neon-rs/load": "^0.1.82"
