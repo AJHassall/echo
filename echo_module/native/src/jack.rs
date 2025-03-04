@@ -1,5 +1,6 @@
 use jack::{
-    contrib::ClosureProcessHandler, AsyncClient, AudioIn, Client, ClientOptions, Control, Error, Port, PortFlags, ProcessScope
+    contrib::ClosureProcessHandler, AsyncClient, AudioIn, Client, ClientOptions, Control, Error,
+    Port, PortFlags, ProcessScope,
 };
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -18,7 +19,7 @@ pub struct JackClient {
     audio_tx: mpsc::Sender<Vec<f32>>,
     audio_rx: Arc<Mutex<mpsc::Receiver<Vec<f32>>>>,
     active_client: Arc<Mutex<Option<MyAsyncClient>>>, // Store AsyncClient Option
-    input_port: Arc<Mutex<Option<Port<AudioIn>>>>, // Store input port
+    input_port: Arc<Mutex<Option<Port<AudioIn>>>>,    // Store input port
 }
 
 impl JackClient {
@@ -29,7 +30,7 @@ impl JackClient {
             audio_tx,
             audio_rx: Arc::new(Mutex::new(audio_rx)),
             active_client: Arc::new(Mutex::new(None)), // Initialize active_client as None
-            input_port: Arc::new(Mutex::new(None)),     //
+            input_port: Arc::new(Mutex::new(None)),    //
         }
     }
 
@@ -59,7 +60,7 @@ impl JackClient {
             jack::set_logger(jack::LoggerType::None);
 
             let (client, _status) = Client::new("echo", ClientOptions::default()).unwrap();
-            let in_a = client.register_port("input", AudioIn::default()).unwrap();
+            //let in_a = client.register_port("input", AudioIn::default()).unwrap();
 
             let connected_ports = client.ports(None, None, PortFlags::empty());
 
@@ -70,26 +71,31 @@ impl JackClient {
             }
 
             let mut buffer = vec![];
-            let process_callback = move |_: &Client, ps: &jack::ProcessScope| -> jack::Control {
+            let process_callback = move |_: &Client, ps: &ProcessScope| -> jack::Control {
                 if !running_clone.load(Ordering::SeqCst) {
                     return jack::Control::Quit;
                 }
 
-                let in_a_p = in_a.as_slice(ps);
+                // Access the input port through the Arc<Mutex<Option<Port<AudioIn>>>>
+                let input_port_guard = input_port_clone.lock().await;
+                if let Some(input_port) = &*input_port_guard {
+                    let in_a_p = input_port.as_slice(ps);
+                    buffer.extend_from_slice(in_a_p);
 
-                buffer.extend_from_slice(in_a_p);
-
-                //1s
-                //  if buffer.len() > 48000 {
-                if let Err(e) = audio_tx_clone.blocking_send(std::mem::take(&mut buffer)) {
-                    eprintln!("Error sending audio data: {}", e);
+                    if let Err(e) = audio_tx_clone.blocking_send(std::mem::take(&mut buffer)) {
+                        eprintln!("Error sending audio data: {}", e);
+                    }
+                } else {
+                    eprintln!("Input port is not registered in process callback!");
+                    return jack::Control::Quit; // Stop processing if input port is unexpectedly missing
                 }
-                // }
+
 
                 jack::Control::Continue
             };
 
-            let process: ClosureProcessHandler<(), MyProcessCallback> = ClosureProcessHandler::new(Box::new(process_callback));
+            let process: ClosureProcessHandler<(), MyProcessCallback> =
+                ClosureProcessHandler::new(Box::new(process_callback));
             match client.activate_async(Notifications, process) {
                 Ok(active_client) => {
                     println!("Jack Client Activated Async");
@@ -118,10 +124,7 @@ impl JackClient {
         self.audio_rx.clone()
     }
 
-    pub async fn get_all_ports(&self) -> Vec<String> {
-        let (client, _status) = Client::new("port-inspector", ClientOptions::default()).unwrap(); // Temporary client
-        client.ports(None, None, PortFlags::empty())
-    }
+
 }
 
 pub trait AudioDataReceiver {
