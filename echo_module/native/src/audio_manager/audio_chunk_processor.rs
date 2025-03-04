@@ -4,8 +4,6 @@ use std::{
 };
 
 use uuid::Uuid;
-use std::sync::Arc;
-use tokio::sync::Mutex;
 
 use crate::web_rtc_vad::WebRtcVadFacade;
 
@@ -17,11 +15,10 @@ pub struct AudioChunkProcessor {
     last_silence_time: Instant,
     silence_duration_threshold: Duration,
     most_recent_energy: f64,
+    has_new_audio: bool,
 }
 
 //TODO see if i can remove this
-//currently, when i use an audioprocesser i create it first then move it to a thread
-//probably makes more sense to create it in the thread
 unsafe impl Send for AudioChunkProcessor {}
 
 impl AudioChunkProcessor {
@@ -33,6 +30,7 @@ impl AudioChunkProcessor {
             silence_duration_threshold: Duration::from_secs(1),
             most_recent_energy: 0.0,
             output_chunks: HashMap::new(),
+            has_new_audio: false,
         }
     }
 
@@ -44,7 +42,10 @@ impl AudioChunkProcessor {
         {
             self.create_or_extend(&audio_chunk[..]);
             self.last_silence_time = time::Instant::now();
-        } else if time::Instant::now().duration_since(self.last_silence_time) >= self.silence_duration_threshold && self.output_chunks.contains_key(&self.current_chunk_uuid) {
+        } else if time::Instant::now().duration_since(self.last_silence_time)
+            >= self.silence_duration_threshold
+            && self.output_chunks.contains_key(&self.current_chunk_uuid)
+        {
             self.current_chunk_uuid = Uuid::new_v4();
         }
     }
@@ -58,23 +59,27 @@ impl AudioChunkProcessor {
                     .insert(self.current_chunk_uuid, audio.to_vec());
             }
         }
+        self.has_new_audio = true;
     }
 
-    pub fn set_silence_duration_threshold(&mut self, new_threshhold: f64) {
-        self.silence_duration_threshold = Duration::from_millis((new_threshhold * 1000.0) as u64)
+    pub fn set_silence_duration_threshold(&mut self, new_threshold: f64) {
+        self.silence_duration_threshold = Duration::from_millis((new_threshold * 1000.0) as u64)
     }
 
     pub fn get_current_audio(&mut self) -> HashMap<Uuid, Vec<f32>> {
+        self.has_new_audio = false;
         self.output_chunks.clone()
+    }
+
+    pub fn has_new_audio(&self) -> bool {
+        self.has_new_audio
     }
 
     pub fn clear_current_audio(&mut self) {
         self.output_chunks
             .retain(|&key, _| key == self.current_chunk_uuid);
     }
-    pub fn get_most_recent_energy(&mut self) -> f64 {
-        self.most_recent_energy
-    }
+
     pub fn get_frame_size(&mut self) -> usize {
         self.vad.calculate_expected_frame_size()
     }

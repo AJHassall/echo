@@ -1,29 +1,23 @@
 {
-  "name": "echo_transcriber",
-  "version": "0.1.0",
+  "name": "@mono-repo/echo_module",
+  "version": "1.0.0",
   "description": "wrapper for jack",
   "main": "buildjs/index.js",
-    "scripts": {
-    "build:addon": "cd native && cargo build --release --message-format=json > cargo.log && npx neon dist < cargo.log",
-    "build": "yarn build:addon && node install/cleanbuild.js && tsc",
+  "scripts": {
+    "build:addon": "cd native && cargo build --release --message-format=json > cargo.log && cp -r ../native ../../module_src && cd ../../module_src && npx neon build < cargo.log ",
+    "build": "yarn build:addon && pwd && node install/cleanbuild.js && tsc",
     "prepack": "yarn build && yarn test",
     "test": "node test/index.test.js",
-    "postinstall": "yarn build:addon"
+    "clean": "cargo clean && rm -rf buildjs native/index.node"
   },
   "author": "",
   "license": "ISC",
-  "files": [
-    "assets",
-    "buildjs",
-    "src",
-    "native/index.node", 
-    "Cargo.toml"
-  ],
   "devDependencies": {
     "@neon-rs/cli": "^0.1.82",
     "@tsconfig/node20": "^20.1.4",
     "@types/node": "^20.11.16",
-    "typescript": "^5.3.3"
+    "neon-cli": "^0.10.1",
+    "typescript": "^5.8.2"
   },
   "dependencies": {
     "@neon-rs/load": "^0.1.82"
@@ -34,5 +28,6 @@
     "rust",
     "node"
   ],
-  "optionalDependencies": {}
+  "optionalDependencies": {},
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
 }

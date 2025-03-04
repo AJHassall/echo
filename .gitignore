@@ -9,9 +9,15 @@
 # MSVC Windows builds of rustc generate these, which store debugging information
 *.pdb
 
+
+node_modules/
+buildjs/
+native/index.node
+cargo.log
+target/
+echo_module/buildjs/**
 echo_module/buildjs/index-default.d.ts
 echo_module/buildjs/index-default.js
 echo_module/buildjs/index-default.js.map
-echo_module/buildjs/load.cjs
-echo_module/buildjs/load.cjs.map
-echo_module/buildjs/load.d.cts
+echo_module/buildjs/index-default.d.ts
+module_src/

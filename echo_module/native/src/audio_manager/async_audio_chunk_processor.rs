@@ -1,10 +1,6 @@
-use std::{
-    collections::HashMap,
-    time::{Duration, Instant},
-};
-use uuid::Uuid;
+use std::collections::HashMap;
 use tokio::sync::Mutex;
-use std::sync::Arc;
+use uuid::Uuid;
 
 use crate::{audio_manager::AudioChunkProcessor, web_rtc_vad::WebRtcVadFacade};
 
@@ -24,9 +20,9 @@ impl AsyncAudioChunkProcessor {
         processor.process_chunk(audio_chunk);
     }
 
-    pub async fn set_silence_duration_threshold(&self, new_threshhold: f64) {
+    pub async fn set_silence_duration_threshold(&self, new_threshold: f64) {
         let mut processor = self.processor.lock().await;
-        processor.set_silence_duration_threshold(new_threshhold);
+        processor.set_silence_duration_threshold(new_threshold);
     }
 
     pub async fn get_current_audio(&self) -> HashMap<Uuid, Vec<f32>> {
@@ -39,13 +35,13 @@ impl AsyncAudioChunkProcessor {
         processor.clear_current_audio();
     }
 
-    pub async fn get_most_recent_energy(&self) -> f64 {
-        let mut processor = self.processor.lock().await;
-        processor.get_most_recent_energy()
-    }
-
     pub async fn get_frame_size(&self) -> usize {
         let mut processor = self.processor.lock().await;
         processor.get_frame_size()
+    }
+
+    pub async fn has_new_audio(&self) -> bool {
+        let processor = self.processor.lock().await;
+        processor.has_new_audio()
     }
 }

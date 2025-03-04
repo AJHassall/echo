@@ -1,42 +1,42 @@
 use audio_recorder::AudioRecorder;
 use neon::prelude::*;
 
+mod api;
+mod audio_manager;
 mod audio_recorder;
+mod audio_transcription_controller;
+mod event_publisher;
 mod jack;
 mod transcription_engine;
-mod api;
-mod event_publisher;
-mod web_rtc_vad;
-mod audio_manager;
-mod audio_transcription_controller;
 mod util;
+mod web_rtc_vad;
 
 pub fn start(mut cx: FunctionContext) -> JsResult<JsUndefined> {
-    let silence_threshhold = cx.argument::<JsNumber>(0)?;
     let duration_threshold = cx.argument::<JsNumber>(1)?;
 
-    let silence_threshhold = silence_threshhold.value(&mut cx);
     let duration_threshold = duration_threshold.value(&mut cx);
 
-    AudioRecorder::start(duration_threshold);
-
-    Ok(cx.undefined())    
+    match AudioRecorder::start(duration_threshold) {
+        Ok(_) => Ok(cx.undefined()),
+        Err(err_msg) => cx.throw_error(err_msg),
+    }
 }
 
 pub fn stop(mut cx: FunctionContext) -> JsResult<JsUndefined> {
-
-    AudioRecorder::stop();
-
-    Ok(cx.undefined())    
+    match AudioRecorder::stop() {
+        Ok(_) => Ok(cx.undefined()),
+        Err(err_msg) => cx.throw_error(err_msg),
+    }
 }
 
-pub fn initialise(mut cx: FunctionContext) -> JsResult<JsUndefined>{
+pub fn initialise(mut cx: FunctionContext) -> JsResult<JsUndefined> {
     let call_back = cx.argument::<JsFunction>(0)?.root(&mut cx);
     let channel = cx.channel();
 
-    AudioRecorder::initialise(call_back, channel);
-
-    Ok(cx.undefined())    
+    match AudioRecorder::initialise(call_back, channel) {
+        Ok(_) => Ok(cx.undefined()),
+        Err(err_msg) => cx.throw_error(err_msg), // Throw the error to JavaScript
+    }
 }
 
 #[neon::main]
@@ -44,6 +44,6 @@ fn main(mut cx: ModuleContext) -> NeonResult<()> {
     cx.export_function("start", start)?;
     cx.export_function("stop", stop)?;
     cx.export_function("initialise", initialise)?;
-    
+
     Ok(())
 }

@@ -29,12 +29,12 @@ lazy_static! {
 fn runtime() -> &'static Runtime {
     static RUNTIME: OnceCell<Runtime> = OnceCell::new();
 
-    if let Ok(runtime) = RUNTIME.get_or_try_init(|| Runtime::new()) {
+    if let Ok(runtime) = RUNTIME.get_or_try_init(Runtime::new) {
         println!("runtime intiialised");
 
-        return runtime;
+        runtime
     } else {
-        println!("error initialising runntime");
+        println!("error initialising runtime");
         panic!();
     }
 }
@@ -50,21 +50,13 @@ impl AudioRecorder {
         );
     }
 
-    pub fn send_most_recent_energy<T: Into<String>>(energy: T) {
-        EventPublisher::publish_if_available(
-            "new_energy".to_string(),
-            energy.into(),
-            "todo".to_string(),
-        );
-    }
-
     async fn run_recorder() {
         println!("Recording task started");
 
         let vad = web_rtc_vad::WebRtcVadFacade::new(48000, VadMode::Quality).expect("msg");
-        let mut processor = AsyncAudioChunkProcessor::new(vad);
+        let processor = AsyncAudioChunkProcessor::new(vad);
 
-        processor.set_silence_duration_threshold(2.0);
+        processor.set_silence_duration_threshold(2.0).await;
 
         let mut jack_client = JackClient::new();
         let receiver_arc = jack_client.get_audio_receiver();
@@ -73,7 +65,6 @@ impl AudioRecorder {
         let (transcribe_tx, mut transcribe_rx) =
             tokio::sync::mpsc::channel::<(uuid::Uuid, Vec<f32>)>(32);
 
-        // Mutex to control access to transcribe
         let transcribe_running = std::sync::Arc::new(tokio::sync::Mutex::new(false));
         let transcribe_running_clone = std::sync::Arc::clone(&transcribe_running);
 
@@ -100,7 +91,7 @@ impl AudioRecorder {
             let mut receiver_guard = receiver_arc.lock().await;
             let audio_data = &*receiver_guard.recv().await.expect("msg");
 
-            buffer.extend_from_slice(&audio_data);
+            buffer.extend_from_slice(audio_data);
             if buffer.len() >= processor.get_frame_size().await {
                 processor.process_chunk(std::mem::take(&mut buffer)).await;
             }
@@ -108,14 +99,14 @@ impl AudioRecorder {
             {
                 let running = transcribe_running.lock().await;
 
-                if !*running {
+                if !*running && processor.has_new_audio().await {
                     let to_process = processor.get_current_audio().await;
 
                     for (uuid, audio) in to_process {
                         transcribe_tx
                             .send((uuid, audio))
                             .await
-                            .expect("faile to send");
+                            .expect("failed to send");
                     }
 
                     processor.clear_current_audio().await;
@@ -135,8 +126,7 @@ impl AudioRecorder {
 
         let rt = runtime();
 
-        rt.spawn(async move { AudioRecorder::run_recorder().await }); // Corrected line
-
+        rt.spawn(async move { AudioRecorder::run_recorder().await });
         Ok(())
     }
 

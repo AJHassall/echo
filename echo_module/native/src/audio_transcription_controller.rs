@@ -3,7 +3,6 @@ use std::fmt;
 use whisper_rs::WhisperError;
 
 use crate::transcription_engine::TranscriptionEngine;
-use std::sync::{Arc, Mutex};
 
 // Define a custom error type
 #[derive(Debug)]
@@ -37,7 +36,6 @@ pub struct TranscribeResponse {
     pub transcription: String,
 }
 
-// 1. Transcriber Trait
 pub trait Transcriber {
     fn transcribe(&mut self, audio: Vec<f32>) -> Result<TranscribeResponse, CustomError>;
 }
@@ -59,17 +57,13 @@ pub struct ConcurrentTranscriber<T: Transcriber> {
 
 impl<T: Transcriber> ConcurrentTranscriber<T> {
     pub fn new(inner: T) -> Self {
-        ConcurrentTranscriber {
-            inner,
-        }
+        ConcurrentTranscriber { inner }
     }
 }
 
 impl<T: Transcriber> Transcriber for ConcurrentTranscriber<T> {
     fn transcribe(&mut self, audio: Vec<f32>) -> Result<TranscribeResponse, CustomError> {
-        let result = self.inner.transcribe(audio);
-
-        result
+        self.inner.transcribe(audio)
     }
 }
 
