@@ -1,10 +1,3 @@
-# Echo: Real-time Desktop Audio Captions (Early Development)
-
-
-**This project is a very early experiment and is unstable. Use with caution.**
-
-Echo captures your computer's audio and creates real-time captions using a local AI model (Whisper).
-
 ## Build Steps
 
 To build and run the application, follow these steps:
@@ -15,7 +8,7 @@ To build and run the application, follow these steps:
     git clone <repository_url>
     ```
 
-2.  **Download Whisper Model:**
+2.  **Download Whisper Model (from whisper.cpp):**
 
     ```bash
     cd whisper_models
@@ -23,6 +16,7 @@ To build and run the application, follow these steps:
     cd ..
     ```
     * This step downloads the "tiny.en" Whisper model, which is required for the application.
+    * **Note:** The Whisper models are utilized through the [whisper.cpp](https://github.com/ggerganov/whisper.cpp) project, which provides a C++ implementation of the Whisper speech recognition model. This application leverages the whisper.cpp project for efficient model execution.
 
 3.  **Install Dependencies and Build:**
 
@@ -41,29 +35,7 @@ Before building, ensure that the following dependencies are installed on your sy
 * **OpenSSL Libraries:** The OpenSSL development libraries are required. Install them using your system's package manager (e.g., `sudo apt-get install libssl-dev` on Debian/Ubuntu, `brew install openssl` on macOS).
 * **libclang-dev:** The libclang development libraries are required. Install them using your system's package manager (e.g., `sudo apt-get install libclang-dev` on Debian/Ubuntu).
 
-**Current Status:**
+**Credits:**
 
-* Captures desktop audio.
-* Transcribes audio using a local Whisper model.
-* Displays transcriptions in the console.
-
-**Key Technologies:**
-
-* Rust (for performance)
-* Neon (Rust to JavaScript bridge)
-* Electron (cross-platform desktop app)
-* Whisper (local audio transcription)
-
-**Planned Features:**
-
-* Real-time caption overlay on the desktop.
-* Cross-platform support (Windows, macOS, Linux).
-* Improved stability and error handling.
-* Better audio processing (noise reduction, etc.).
-* User settings (audio device, language, caption style, model selection).
-* Code improvements (remove static variables).
-* Improved user interface.
-* Speaker identification.
-* Saving transcriptions.
-
-
+* This application utilizes the [whisper.cpp](https://github.com/ggerganov/whisper.cpp) project for efficient Whisper model execution.
+* The Whisper models themselves are derived from the original OpenAI Whisper project.
