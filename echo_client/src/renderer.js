@@ -170,3 +170,5 @@ slider.addEventListener('input', function () {
 slider1.addEventListener('input', function () {
   sliderValueChanged(this);
 });
+
+import './app.jsx';

@@ -1,0 +1,30 @@
+/* SliderPanel.css */
+.slider-panel {
+  position: fixed;
+  top: 0;
+  height: 100vh;
+  background-color: lightgray;
+  transition: transform 0.3s ease-in-out;
+  box-shadow: none;
+  z-index: 1000;
+}
+
+.slider-panel.left {
+  left: 0;
+  transform: translateX(-100%);
+}
+
+.slider-panel.right {
+  right: 0;
+  transform: translateX(100%);
+}
+
+.slider-panel.left.open {
+  transform: translateX(0);
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.3);
+}
+
+.slider-panel.right.open {
+  transform: translateX(0);
+  box-shadow: -2px 0 5px rgba(0, 0, 0, 0.3);
+}

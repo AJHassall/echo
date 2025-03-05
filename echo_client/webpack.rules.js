@@ -15,6 +15,15 @@ module.exports = [
         outputAssetBase: 'native_modules',
       },
     },
+    test: /\.(jsx|tsx|ts|js)?$/,
+   /// include: './src/components',
+    use: {
+      loader: 'babel-loader',
+      options: {
+        exclude: /node_modules/,
+        presets: ['@babel/preset-react']
+      }
+    }
   },
 
   // Put your webpack loader rules in this array.  This is where you would put
