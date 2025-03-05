@@ -4,8 +4,8 @@
 
 const addon = require("../native/index.node");
 
-export function start(silence_threshold: number, duration_threshold: number): undefined {
-  const message =addon.start(silence_threshold, duration_threshold);
+export function start(audio_sources: Array<String>, duration_threshold: number): undefined {
+  const message = addon.start(audio_sources, duration_threshold);
 }
 
 export function stop(): undefined {
@@ -16,4 +16,6 @@ export function initialise(callback: (eventData: any) => void): undefined {
   addon.initialise(callback);
 }
 
-
+export function get_audio_sources(): Array<String> {
+  return addon.get_audio_sources();
+}

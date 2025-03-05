@@ -41,8 +41,7 @@ impl AudioChunkProcessor {
             .expect("VAD processing error")
         {
 
-            let e =     audio_chunk.iter().fold(0.0, |acc, &sample| acc + sample * sample);
-                   println!("speech detected {}", e);
+            //let e =     audio_chunk.iter().fold(0.0, |acc, &sample| acc + sample * sample);
 
             self.create_or_extend(&audio_chunk[..]);
             self.last_silence_time = time::Instant::now();
@@ -65,8 +64,6 @@ impl AudioChunkProcessor {
                     .insert(self.current_chunk_uuid, audio.to_vec());
             }
         }
-        println!("create");
-
         self.has_new_audio = true;
     }
 

@@ -34,15 +34,14 @@ import mediaRecorder from '@mono-repo/echo_module'
 
 mediaRecorder.initialise(function (e) {
   requestAnimationFrame(() => {
-    
+
     switch (e.event_type) {
       case "new_energy":
         //     appendTranscription(transcription);
         //updateEnergyDisplay(e.message)
         break;
-        
-        case "transcription":
-        console.log(e);
+
+      case "transcription":
         appendTranscription(e.message, e.event_id);
         break;
     }
@@ -69,7 +68,11 @@ stopBtn.onclick = e => {
 var silence_threshold = 1
 var duration_threshhold = 25;
 async function startRecording() {
-  mediaRecorder.start(silence_threshold, duration_threshhold);
+  const selectedSources = getSelectedAudioSources();
+
+  console.log(selectedSources);
+
+  mediaRecorder.start(selectedSources, duration_threshhold);
 }
 
 
@@ -94,29 +97,36 @@ function appendTranscription(transcription, event_id) {
     list.appendChild(newItem);
   }
 }
+function getAudioSources() {
+  return mediaRecorder.get_audio_sources();
+}
 
-// //TODO set this as a call back in Neon rs
+async function refreshAudioSources() {
+  const sources = getAudioSources();
+  audioSourceList.innerHTML = '<h3>Audio Sources</h3><button id="refreshAudioSources">Refresh</button>'; // Clear and add refresh button back
 
-// setInterval(function () {
-//   let transcription = mediaRecorder.get();
+  sources.forEach((source) => {
+    const label = document.createElement('label');
+    const br = document.createElement('br');
+    label.appendChild(br);
+    const checkbox = document.createElement('input');
 
-//   transcription.forEach(e => {
-//     appendTranscription(transcription);
-//   })
+    checkbox.type = 'checkbox';
+    checkbox.value = source;
+    label.appendChild(checkbox);
+    label.appendChild(document.createTextNode(source));
+    audioSourceList.appendChild(label);
+  });
 
-//   mediaRecorder.clear();
+  document.getElementById('refreshAudioSources').addEventListener('click', refreshAudioSources); // Re-add the listener
+}
 
-// }, 1000);
+function getSelectedAudioSources() {
+  const checkboxes = audioSourceList.querySelectorAll('input[type="checkbox"]:checked');
+  return Array.from(checkboxes).map((checkbox) => checkbox.value);
+}
 
-// //TODO set this as a call back in Neon rs
-
-// setInterval(function () {
-//   let energy = mediaRecorder.get_energy();
-//   updateEnergyDisplay(energy)
-
-
-// }, 500);
-
+refreshAudioSources();
 
 
 function updateEnergyDisplay(energy) {
