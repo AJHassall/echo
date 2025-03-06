@@ -40,12 +40,17 @@ impl AudioChunkProcessor {
             .is_speech(&audio_chunk[0..1440])
             .expect("VAD processing error")
         {
+
+            //let e =     audio_chunk.iter().fold(0.0, |acc, &sample| acc + sample * sample);
+
             self.create_or_extend(&audio_chunk[..]);
             self.last_silence_time = time::Instant::now();
         } else if time::Instant::now().duration_since(self.last_silence_time)
             >= self.silence_duration_threshold
             && self.output_chunks.contains_key(&self.current_chunk_uuid)
         {
+            println!("silence longer than 2 s detected");
+
             self.current_chunk_uuid = Uuid::new_v4();
         }
     }
@@ -67,7 +72,6 @@ impl AudioChunkProcessor {
     }
 
     pub fn get_current_audio(&mut self) -> HashMap<Uuid, Vec<f32>> {
-        self.has_new_audio = false;
         self.output_chunks.clone()
     }
 

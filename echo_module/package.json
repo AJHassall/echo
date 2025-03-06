@@ -4,7 +4,7 @@
   "description": "wrapper for jack",
   "main": "buildjs/index.js",
   "scripts": {
-    "build:addon": "cd native && cargo build --release --message-format=json > cargo.log && cp -r ../native ../../module_src && cd ../../module_src && npx neon build < cargo.log ",
+    "build:addon": "cd native && cargo build --release --message-format=json > cargo.log && npx neon build < cargo.log ",
     "build": "yarn build:addon && pwd && node install/cleanbuild.js && tsc",
     "prepack": "yarn build && yarn test",
     "test": "node test/index.test.js",

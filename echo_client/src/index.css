@@ -1,24 +1,46 @@
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica,
-    Arial, sans-serif;
-  margin: auto;
-  max-width: 38rem;
-  padding: 2rem;
+.flex-container {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  justify-content: normal;
+  align-items: stretch;
+  align-content: normal;
 }
 
-#transcriptionList {
-  border: 1px solid #ccc;
-  padding: 10px;
-  margin: 20px;
-  width: 400px;
-  min-height: 100px;
-  font-family: sans-serif;
+.flex-items:nth-child(1) {
+  display: block;
+  flex-grow: 0;
+  flex-basis: auto;
+  align-self: auto;
+  order: 0;
 }
-.transcriptionItem {
-  border-bottom: 1px solid #eee;
-  padding: 5px 0;
-  white-space: pre-wrap; /* Preserve line breaks */
+
+.flex-items:nth-child(2) {
+  display: block;
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: auto;
+  align-self: auto;
+  order: 0;
 }
-.transcriptionItem:last-child {
-  border-bottom: none; /* Remove border from the last item */
+
+.flex-items:nth-child(3) {
+  display: block;
+  flex-grow: 0;
+  flex-basis: auto;
+  align-self: auto;
+  order: 0;
+}
+
+.sliderContainer input[type="range"] {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  appearance: slider-vertical;
+  width: 16px;
+  vertical-align: bottom;
+  
+}
+
+.main{
+  height: 90vh;
 }

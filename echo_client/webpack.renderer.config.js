@@ -14,4 +14,8 @@ module.exports = {
   externals: {
     '@mono-repo/echo_module': 'commonjs @mono-repo/echo_module',
   },
+  resolve: {
+    extensions: ['.js', '.jsx'],
+  },
+
 };

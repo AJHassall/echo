@@ -50,7 +50,7 @@ impl AudioRecorder {
         );
     }
 
-    async fn run_recorder() {
+    async fn run_recorder(duration_threshold: f64, audio_souces: Vec<String>) {
         println!("Recording task started");
 
         let vad = web_rtc_vad::WebRtcVadFacade::new(48000, VadMode::Quality).expect("msg");
@@ -58,7 +58,7 @@ impl AudioRecorder {
 
         processor.set_silence_duration_threshold(2.0).await;
 
-        let mut jack_client = JackClient::new();
+        let mut jack_client = JackClient::new(audio_souces);
         let receiver_arc = jack_client.get_audio_receiver();
         jack_client.start_processing();
 
@@ -72,6 +72,8 @@ impl AudioRecorder {
             while let Some((uuid, audio)) = transcribe_rx.recv().await {
                 let t = Timer::new("inside transcription loop".to_string());
                 {
+                    let t = Timer::new("awaiting lock".to_string());
+
                     let mut running = transcribe_running_clone.lock().await;
                     *running = true;
                 }
@@ -80,6 +82,8 @@ impl AudioRecorder {
                     Self::send_transcription(response.transcription, uuid.to_string())
                 }
                 {
+                    let t = Timer::new("awaiting lock".to_string());
+
                     let mut running = transcribe_running_clone.lock().await;
                     *running = false;
                 }
@@ -117,7 +121,7 @@ impl AudioRecorder {
         jack_client.stop_processing();
     }
 
-    pub fn start(duration_threshold: f64) -> Result<(), String> {
+    pub fn start(duration_threshold: f64, audio_souces: Vec<String>) -> Result<(), String> {
         if IS_RECORDING.load(Ordering::SeqCst) {
             return Err("recorder already running".to_string());
         }
@@ -126,7 +130,7 @@ impl AudioRecorder {
 
         let rt = runtime();
 
-        rt.spawn(async move { AudioRecorder::run_recorder().await });
+        rt.spawn(async move { AudioRecorder::run_recorder(duration_threshold, audio_souces).await });
         Ok(())
     }
 

@@ -26,137 +26,149 @@
  * ```
  */
 
-import './index.css';
+// import './index.css';
 
-console.log('👋 This message is being logged by "renderer.js", included via webpack');
+// console.log('👋 This message is being logged by "renderer.js", included via webpack');
 
-import mediaRecorder from '@mono-repo/echo_module'
+// import mediaRecorder from '@mono-repo/echo_module'
 
-mediaRecorder.initialise(function (e) {
-  requestAnimationFrame(() => {
-    
-    switch (e.event_type) {
-      case "new_energy":
-        //     appendTranscription(transcription);
-        //updateEnergyDisplay(e.message)
-        break;
-        
-        case "transcription":
-        console.log(e);
-        appendTranscription(e.message, e.event_id);
-        break;
-    }
+// mediaRecorder.initialise(function (e) {
+//   requestAnimationFrame(() => {
 
-  });
+//     switch (e.event_type) {
+//       case "new_energy":
+//         //     appendTranscription(transcription);
+//         //updateEnergyDisplay(e.message)
+//         break;
 
-});
+//       case "transcription":
+//         appendTranscription(e.message, e.event_id);
+//         break;
+//     }
 
-const startBtn = document.getElementById('startBtn');
-startBtn.onclick = e => {
-  startRecording();
-  startBtn.innerText = 'Recording';
-};
+//   });
 
-const stopBtn = document.getElementById('stopBtn');
+// });
 
-stopBtn.onclick = e => {
-  stopRecording();
-  startBtn.innerText = 'Start';
-};
+// const startBtn = document.getElementById('startBtn');
+// startBtn.onclick = e => {
+//   startRecording();
+//   startBtn.innerText = 'Recording';
+// };
 
+// const stopBtn = document.getElementById('stopBtn');
 
-//silence_threshold: number, duration_threshhold: number
-var silence_threshold = 1
-var duration_threshhold = 25;
-async function startRecording() {
-  mediaRecorder.start(silence_threshold, duration_threshhold);
-}
+// stopBtn.onclick = e => {
+//   stopRecording();
+//   startBtn.innerText = 'Start';
+// };
 
 
-async function stopRecording() {
-  mediaRecorder.stop()
-}
+// //silence_threshold: number, duration_threshhold: number
+// var silence_threshold = 1
+// var duration_threshhold = 25;
+// async function startRecording() {
+//   const selectedSources = getSelectedAudioSources();
 
-function appendTranscription(transcription, event_id) {
-  const list = document.getElementById('transcriptionList');
-  let existingItem = document.getElementById(event_id);
+//   console.log(selectedSources);
 
-  if (existingItem) {
-    // Element with event_id exists, update its textContent
-    existingItem.textContent = transcription;
-  } else {
-    // Element with event_id does not exist, create a new one
-    const newItem = document.createElement('div');
-    newItem.className = 'transcriptionItem';
-    newItem.id = event_id; // Set the id to the event_id
-    newItem.textContent = transcription;
-
-    list.appendChild(newItem);
-  }
-}
-
-// //TODO set this as a call back in Neon rs
-
-// setInterval(function () {
-//   let transcription = mediaRecorder.get();
-
-//   transcription.forEach(e => {
-//     appendTranscription(transcription);
-//   })
-
-//   mediaRecorder.clear();
-
-// }, 1000);
-
-// //TODO set this as a call back in Neon rs
-
-// setInterval(function () {
-//   let energy = mediaRecorder.get_energy();
-//   updateEnergyDisplay(energy)
+//   mediaRecorder.start(selectedSources, duration_threshhold);
+// }
 
 
-// }, 500);
+// async function stopRecording() {
+//   mediaRecorder.stop()
+// }
+
+// function appendTranscription(transcription, event_id) {
+//   const list = document.getElementById('transcriptionList');
+//   let existingItem = document.getElementById(event_id);
+
+//   if (existingItem) {
+//     // Element with event_id exists, update its textContent
+//     existingItem.textContent = transcription;
+//   } else {
+//     // Element with event_id does not exist, create a new one
+//     const newItem = document.createElement('div');
+//     newItem.className = 'transcriptionItem';
+//     newItem.id = event_id; // Set the id to the event_id
+//     newItem.textContent = transcription;
+
+//     list.appendChild(newItem);
+//   }
+// }
+// function getAudioSources() {
+//   return mediaRecorder.get_audio_sources();
+// }
+
+// async function refreshAudioSources() {
+//   const sources = getAudioSources();
+//   audioSourceList.innerHTML = '<h3>Audio Sources</h3><button id="refreshAudioSources">Refresh</button>'; // Clear and add refresh button back
+
+//   sources.forEach((source) => {
+//     const label = document.createElement('label');
+//     const br = document.createElement('br');
+//     label.appendChild(br);
+//     const checkbox = document.createElement('input');
+
+//     checkbox.type = 'checkbox';
+//     checkbox.value = source;
+//     label.appendChild(checkbox);
+//     label.appendChild(document.createTextNode(source));
+//     audioSourceList.appendChild(label);
+//   });
+
+//   document.getElementById('refreshAudioSources').addEventListener('click', refreshAudioSources); // Re-add the listener
+// }
+
+// function getSelectedAudioSources() {
+//   const checkboxes = audioSourceList.querySelectorAll('input[type="checkbox"]:checked');
+//   return Array.from(checkboxes).map((checkbox) => checkbox.value);
+// }
+
+// refreshAudioSources();
 
 
+// function updateEnergyDisplay(energy) {
+//   const displayElement = document.getElementById("energyDisplay");
+//   if (displayElement) {
+//     if (energy !== null) {
+//       displayElement.textContent = "Energy: " + energy
+//     } else {
+//       displayElement.textContent = "Energy: Error";
+//     }
+//   }
+// }
 
-function updateEnergyDisplay(energy) {
-  const displayElement = document.getElementById("energyDisplay");
-  if (displayElement) {
-    if (energy !== null) {
-      displayElement.textContent = "Energy: " + energy
-    } else {
-      displayElement.textContent = "Energy: Error";
-    }
-  }
-}
+// function sliderValueChanged(sliderElement) {
+//   const value = parseFloat(sliderElement.value);
+//   const sliderId = sliderElement.id;
+//   const displayElementId = sliderId + 'Value';
+//   const displayElement = document.getElementById(displayElementId);
 
-function sliderValueChanged(sliderElement) {
-  const value = parseFloat(sliderElement.value);
-  const sliderId = sliderElement.id;
-  const displayElementId = sliderId + 'Value';
-  const displayElement = document.getElementById(displayElementId);
+//   if (displayElement) {
+//     displayElement.textContent = `${sliderId}:` + value;
+//   }
 
-  if (displayElement) {
-    displayElement.textContent = `${sliderId}:` + value;
-  }
+//   if (displayElementId == "AudioVolumeThreshold") {
+//     silence_threshold = value;
+//   }
 
-  if (displayElementId == "AudioVolumeThreshold") {
-    silence_threshold = value;
-  }
+//   else {
+//     duration_threshhold = value;
+//   }
 
-  else {
-    duration_threshhold = value;
-  }
+// }
 
-}
+// const slider = document.getElementById('AudioVolumeThreshold');
+// const slider1 = document.getElementById('PauseTime');
 
-const slider = document.getElementById('AudioVolumeThreshold');
-const slider1 = document.getElementById('PauseTime');
+// slider.addEventListener('input', function () {
+//   sliderValueChanged(this);
+// });
 
-slider.addEventListener('input', function () {
-  sliderValueChanged(this);
-});
+// slider1.addEventListener('input', function () {
+//   sliderValueChanged(this);
+// });
 
-slider1.addEventListener('input', function () {
-  sliderValueChanged(this);
-});
+import './root.jsx';

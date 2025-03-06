@@ -10,15 +10,17 @@ pub struct JackClient {
     running: Arc<AtomicBool>,
     audio_tx: mpsc::Sender<Vec<f32>>,
     audio_rx: Arc<Mutex<mpsc::Receiver<Vec<f32>>>>,
+    audio_sources: Vec<String>
 }
 
 impl JackClient {
-    pub fn new() -> Self {
+    pub fn new(audio_sources: Vec<String>) -> Self {
         let (audio_tx, audio_rx) = mpsc::channel(32); // Use tokio channel
         JackClient {
             running: Arc::new(AtomicBool::new(false)),
             audio_tx,
             audio_rx: Arc::new(Mutex::new(audio_rx)),
+            audio_sources
         }
     }
 
@@ -26,6 +28,7 @@ impl JackClient {
         let running = self.running.clone();
         let audio_tx_clone = self.audio_tx.clone();
         let running_clone = self.running.clone();
+        let audio_sources_clone = self.audio_sources.clone();
 
         task::spawn(async move {
             running.store(true, Ordering::SeqCst);
@@ -33,10 +36,11 @@ impl JackClient {
 
             let (client, _status) = Client::new("echo", ClientOptions::default()).unwrap();
             let in_a = client.register_port("input", AudioIn::default()).unwrap();
-
+            
             let connected_ports = client.ports(None, None, PortFlags::empty());
 
-            for port in connected_ports {
+
+            for port in audio_sources_clone {
                 if let Err(e) = client.connect_ports_by_name(&port, &in_a.name().unwrap()) {
                     eprintln!("Error connecting ports: {}", e);
                 }
@@ -73,12 +77,15 @@ impl JackClient {
         });
     }
 
+    
+
     pub fn stop_processing(&mut self) {
         self.running.store(false, Ordering::SeqCst);
     }
     pub fn get_audio_receiver(&self) -> Arc<Mutex<mpsc::Receiver<Vec<f32>>>> {
         self.audio_rx.clone()
     }
+
 }
 
 pub trait AudioDataReceiver {
@@ -91,6 +98,12 @@ impl AudioDataReceiver for JackClient {
     }
 }
 
+pub fn get_audio_sources() -> Vec<String>{
+    let (client, _status) = Client::new("dummy", ClientOptions::default()).unwrap();
+    let connected_ports = client.ports(None, None, PortFlags::empty());
+
+    connected_ports
+}
 struct Notifications;
 
 impl jack::NotificationHandler for Notifications {
