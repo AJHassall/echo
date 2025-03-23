@@ -5,7 +5,7 @@ To build and run the application, follow these steps:
 1.  **Clone the Repository:**
 
     ```bash
-    git clone <repository_url>
+    git clone git@github.com:AJHassall/echo.git
     ```
 
 2.  **Download Whisper Model (from whisper.cpp):**
